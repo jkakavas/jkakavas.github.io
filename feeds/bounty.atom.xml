@@ -207,7 +207,7 @@ Referer: https://login.microsoftonline.com/login.srf?wa=wsignin1.0&amp;amp;rpsnv
 &lt;img alt="Idenity Provider login form" src="/images/office365-2.png" /&gt;
 &lt;p class="caption"&gt;Idenity Provider login form&lt;/p&gt;
 &lt;/div&gt;
-&lt;p&gt;and subsequently their browser is instructed to make an HTTP POST back to the HTTP-POST binding URL of Office 365, &lt;em&gt;https://login.microsoftonline.com/login.srf&lt;/em&gt; with the SAML Response containing the Assertion in the request body. En example of this SAML Response is seen below&lt;/p&gt;
+&lt;p&gt;and subsequently their browser is instructed to make an HTTP POST back to the HTTP-POST binding URL of Office 365, &lt;em&gt;https://login.microsoftonline.com/login.srf&lt;/em&gt; with the SAML Response containing the Assertion in the request body. An example of this SAML Response is seen below&lt;/p&gt;
 &lt;pre class="code xml literal-block"&gt;
 &lt;span class="nt"&gt;&amp;lt;saml2p:Response&lt;/span&gt; &lt;span class="na"&gt;Destination=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;https://login.microsoftonline.com/login.srf&amp;quot;&lt;/span&gt;
                 &lt;span class="na"&gt;ID=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;_cefc5f992f2e455d7b3e52522fc479db&amp;quot;&lt;/span&gt; &lt;span class="na"&gt;InResponseTo=&lt;/span&gt;&lt;span class="s"&gt;&amp;quot;_f6daef39-fb54-407e-abb4-c75d261b75ae&amp;quot;&lt;/span&gt;
