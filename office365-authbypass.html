@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link href='//fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,700,400italic' rel='stylesheet' type='text/css'>
+
+    <link rel="stylesheet" type="text/css" href="http://www.economyofmechanism.com/theme/stylesheet/style.min.css">
+
+  <link rel="stylesheet" type="text/css" href="http://www.economyofmechanism.com/theme/stylesheet/pygments.min.css">
+  <link rel="stylesheet" type="text/css" href="http://www.economyofmechanism.com/theme/stylesheet/font-awesome.min.css">
+
+
+    <link href="http://www.economyofmechanism.com/feeds/all.atom.xml" type="application/atom+xml" rel="alternate" title="Economy of mechanism Atom">
+
+
+
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="index, follow" />
+
+<meta name="author" content="Ioannis Kakavas" />
+<meta name="description" content="Cross Domain Authentication Bypass in Office 365" />
+<meta name="keywords" content="SAML, office 365, impersonation, Single-Sign-On">
+<meta property="og:site_name" content="Economy of mechanism"/>
+<meta property="og:title" content="The road to hell is paved with SAML Assertions"/>
+<meta property="og:description" content="Cross Domain Authentication Bypass in Office 365"/>
+<meta property="og:locale" content="en_US"/>
+<meta property="og:url" content="http://www.economyofmechanism.com/office365-authbypass.html"/>
+<meta property="og:type" content="article"/>
+<meta property="article:published_time" content="2016-04-27 00:00:00+03:00"/>
+<meta property="article:modified_time" content="2016-04-27 12:40:00+03:00"/>
+<meta property="article:author" content="http://www.economyofmechanism.com/author/ioannis-kakavas.html">
+<meta property="article:section" content="bounty"/>
+<meta property="article:tag" content="SAML"/>
+<meta property="article:tag" content="office 365"/>
+<meta property="article:tag" content="impersonation"/>
+<meta property="article:tag" content="Single-Sign-On"/>
+<meta property="og:image" content="">
+  <title>Economy of mechanism &ndash; The road to hell is paved with SAML Assertions</title>
+</head>
+<body>
+  <aside>
+    <div>
+      <a href="http://www.economyofmechanism.com">
+        <img src="http://www.economyofmechanism.com/theme/img/profile.png" alt="" title="">
+      </a>
+      <h1><a href="http://www.economyofmechanism.com"></a></h1>
+      <p>Security is hard</p>
+      <nav>
+        <ul class="list">
+          <li><a href="http://www.economyofmechanism.com/pages/about.html#about">About</a></li>
+          <li><a href="http://www.geocreepy.com" target="_blank">geocreepy</a></li>
+        </ul>
+      </nav>
+      <ul class="social">
+        <li><a class="sc-twitter" href="https://twitter.com/ilektrojohn" target="_blank"><i class="fa fa-twitter"></i></a></li>
+        <li><a class="sc-github" href="https://github.com/jkakavas" target="_blank"><i class="fa fa-github"></i></a></li>
+        <li><a class="sc-linkedin" href="https://linkedin.com/in/jkakavas" target="_blank"><i class="fa fa-linkedin"></i></a></li>
+        <li><a class="sc-rss" href="//economyofmechanism.com/feeds/all.atom.xml" target="_blank"><i class="fa fa-rss"></i></a></li>
+      </ul>
+    </div>
+  </aside>
+  <main>
+    <nav>
+      <a href="http://www.economyofmechanism.com">Home</a>
+      <a href="/archives.html">Archives</a>
+      <a href="/categories.html">Categories</a>
+      <a href="/tags.html">Tags</a>
+      <a href="http://www.economyofmechanism.com/feeds/all.atom.xml">Atom</a>
+    </nav>
+
+<article>
+  <header>
+    <h1 id="office365-authbypass">The road to hell is paved with SAML Assertions</h1>
+    <p>Posted on Τετ 27 Απρίλιος 2016 in <a href="http://www.economyofmechanism.com/category/bounty.html">bounty</a></p>
+  </header>
+  <div>
+    <div class="section" id="tl-dr">
+<h2>TL;DR</h2>
+<p>A vulnerability in Microsoft Office 365 SAML Service Provider implementation allowed for cross domain authentication bypass affecting <strong>all</strong> federated domains. An attacker exploiting this vulnerability could gain unrestricted access to a victim's Office 365 account, including access to their email, files stored in OneDrive etc.</p>
+<p>This vulnerability was jointly discovered by Klemen Bratec from <a class="reference external" href="http://www.sola-prihodnosti.si/en/">Šola prihodnosti Maribor</a>, and Ioannis Kakavas from <a class="reference external" href="http://www.grnet.gr">Greek Research and Technology Network</a> and this blog post is cross-posted here and on <a class="reference external" href="www.linktosite">TBC</a>.</p>
+<p>Microsoft fixed the vulnerability within <strong>7 hours</strong> of our report and handled the disclosure process admirably.</p>
+</div>
+<div class="section" id="short-saml-introduction">
+<h2>Short SAML introduction</h2>
+<p><tt class="docutils literal">Well, wait, I lost you on the 8th word, what is SAML ?</tt></p>
+<p>SAML stands for Security Assertion Markup Language and is an XML-based standard for exchanging authentication and authorization data between parties. The prominent use of SAML is
+for Cross Domain Web Single-Sign-On.
+This is an overview of the SAML 2.0 Web Browser SSO Profile, short enough to get the gist of it so you can understand the following sections, long enough to bore you if you are
+familiar with SAML already, so feel free to skip to <a class="reference internal" href="#how-office-365-saml-implementation-works">How Office 365 SAML implementation works</a>.</p>
+<div class="section" id="important-concepts">
+<h3>Important Concepts</h3>
+<p>This section focuses on SAML 2.0. The most important components of the SAML specification are the following:</p>
+<p><strong>Assertions</strong></p>
+<p>Assertions are XML structures that contain packaged security information about the user. The two mostly used assertion types are</p>
+<ol class="arabic simple">
+<li>Authentication Assertions that contain the information that the user has proven their identity</li>
+<li>Attribute Assertions that contain specific information about the user in the format of attributes ( such as email address, name, etc. )</li>
+</ol>
+<p><strong>Protocols</strong></p>
+<p>SAML protocols describe how certain SAML elements (including assertions) are packaged within request and response elements, and gives the processing rules that SAML entities must follow when producing or consuming these elements. The Authentication Request Protocol is described later on.</p>
+<p><strong>Bindings</strong></p>
+<p>SAML bindings describe how a SAML message must be mapped on non SAML related messaging formats and communication protocols. For instance the <em>HTTP Redirect Binding</em> defines how SAML messages are formatted when carried directly in the URL query string of an HTTP GET request. A SAML request is transmitted via an SAMLRequest query parameter, the value of which is deflated, base64 encoded and URL encoded.</p>
+<p><strong>Identity Provider</strong></p>
+<p>The identity provider is the SAML authority that holds the information about users and can issue assertions for them to use in Service Providers.</p>
+<p><strong>Service Provider</strong></p>
+<p>The service provider is the SAML consumer that consumes the information (in the form of assertions) about the users in order to allow them access to resources.</p>
+</div>
+<div class="section" id="web-browser-sso-example">
+<h3>Web Browser SSO Example</h3>
+<p>A simple example of the Web Browser SSO Profile is the case where the service provider uses the HTTP Redirect binding and the identity provider uses the HTTP POST binding. The actors involved are</p>
+<ol class="arabic simple">
+<li>The principal (user) using a browser</li>
+<li>The Identity Provider</li>
+<li>The Service Provider</li>
+</ol>
+<div class="figure">
+<img alt="SAML2.0 Web Browser SSO Profile example" src="/images/SAMLwebsso.png" />
+<p class="caption">SAML2.0 Web Browser SSO Profile Example</p>
+</div>
+<p>It all starts with a user attempting to access a protected resource at some service (or explicitly asking to log in). The service is configured to allow/enforce federated login and as such presents or redirects the user
+to a Discovery Service interface in order to select their Identity Provider. Upon user selection, and given that it knows and trusts the selected Identity Provider, the Service Provider creates a SAML Authentication Request that looks like this:</p>
+<pre class="code xml literal-block">
+<span class="nt">&lt;samlp:AuthnRequest</span> <span class="na">xmlns:samlp=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:protocol&quot;</span> <span class="na">ID=</span><span class="s">&quot;_bec424fa5103428909a30ff1e31168327f79474984&quot;</span> <span class="na">Version=</span><span class="s">&quot;2.0&quot;</span>
+                    <span class="na">IssueInstant=</span><span class="s">&quot;2016-04-14T11:39:34Z&quot;</span> <span class="na">ForceAuthn=</span><span class="s">&quot;false&quot;</span> <span class="na">IsPassive=</span><span class="s">&quot;false&quot;</span> <span class="na">ProtocolBinding=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST&quot;</span>
+                    <span class="na">AssertionConsumerServiceURL=</span><span class="s">&quot;https://myserviceprovider.atsomeorg.com/Shibboleth.sso/SAML2/POST&quot;</span><span class="nt">&gt;</span>
+     <span class="nt">&lt;saml:Issuer</span> <span class="na">xmlns:saml=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:assertion&quot;</span><span class="nt">&gt;</span>https://myserviceprovider.atsomeorg.com/shibboleth<span class="nt">&lt;/saml:Issuer&gt;</span>
+     <span class="nt">&lt;samlp:NameIDPolicy</span> <span class="na">xmlns:samlp=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:protocol&quot;</span>
+            <span class="na">Format=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:nameid-format:transient&quot;</span>
+            <span class="na">AllowCreate=</span><span class="s">&quot;true&quot;</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/samlp:AuthnRequest&gt;</span>
+</pre>
+<ul class="simple">
+<li><em>Issuer</em> is the EntityID of the Service Provider which is a URI like string that uniquely identifies it. The <em>Issuer</em> denotes which Service Provider requests the user authentication.</li>
+<li><em>IssueIstant</em> indicates when this request is made and the <em>ID</em> is an internal identifier that the Service Provider uses to match the SAML Response that it will later receive to the originating request.</li>
+</ul>
+<p>The user's browser is then redirected to the respective URL at the Identity Provider depending on the binding that is used and that SAML Authentication Request is passed as a string query parameter in the HTTP GET ( after it has been deflated , base64 encoded and URL encoded ).</p>
+<p>Upon receiving the SAML Request, the Identity Provider checks that it knows and trusts the Service Provider that sends it, validates the contents of the Request  and prompts the user for authentication. If the
+user authenticates successfully, the Identity Provider generates a SAML response, that looks something like this:</p>
+<pre class="code xml literal-block">
+<span class="nt">&lt;samlp:Response</span> <span class="na">xmlns:samlp=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:protocol&quot;</span> <span class="na">xmlns:saml=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:assertion&quot;</span>
+                <span class="na">ID=</span><span class="s">&quot;_8e8dc5f69a98cc4c1ff3427e5ce34606fd672f91e6&quot;</span> <span class="na">Version=</span><span class="s">&quot;2.0&quot;</span> <span class="na">IssueInstant=</span><span class="s">&quot;2016-04-14T11:40:48Z&quot;</span>
+                <span class="na">Destination=</span><span class="s">&quot;https://myserviceprovider.atsomeorg.com/Shibboleth.sso/SAML2/POST&quot;</span>
+                <span class="na">InResponseTo=</span><span class="s">&quot;_bec424fa5103428909a30ff1e31168327f79474984&quot;</span><span class="nt">&gt;</span>
+ <span class="nt">&lt;saml:Issuer&gt;</span>http://idp.example.com/idp/shibboleth<span class="nt">&lt;/saml:Issuer&gt;</span>
+ <span class="nt">&lt;samlp:Status&gt;</span>
+   <span class="nt">&lt;samlp:StatusCode</span> <span class="na">Value=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:status:Success&quot;</span><span class="nt">/&gt;</span>
+ <span class="nt">&lt;/samlp:Status&gt;</span>
+ <span class="nt">&lt;saml:Assertion</span> <span class="na">xmlns:xsi=</span><span class="s">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span> <span class="na">xmlns:xs=</span><span class="s">&quot;http://www.w3.org/2001/XMLSchema&quot;</span>
+                 <span class="na">ID=</span><span class="s">&quot;pfx65c8c6cd-b03b-8634-fd54-636fa66e7722&quot;</span> <span class="na">Version=</span><span class="s">&quot;2.0&quot;</span> <span class="na">IssueInstant=</span><span class="s">&quot;2016-04-14T11:40:48Z&quot;</span><span class="nt">&gt;</span>
+   <span class="nt">&lt;saml:Issuer&gt;</span>http://idp.example.com/idp/shibboleth<span class="nt">&lt;/saml:Issuer&gt;</span>
+   <span class="nt">&lt;ds:Signature</span> <span class="na">xmlns:ds=</span><span class="s">&quot;http://www.w3.org/2000/09/xmldsig#&quot;</span><span class="nt">&gt;</span>
+   <span class="nt">&lt;ds:SignedInfo&gt;&lt;ds:CanonicalizationMethod</span> <span class="na">Algorithm=</span><span class="s">&quot;http://www.w3.org/2001/10/xml-exc-c14n#&quot;</span><span class="nt">/&gt;</span>
+       <span class="nt">&lt;ds:SignatureMethod</span> <span class="na">Algorithm=</span><span class="s">&quot;http://www.w3.org/2000/09/xmldsig#rsa-sha1&quot;</span><span class="nt">/&gt;</span>
+     <span class="nt">&lt;ds:Reference</span> <span class="na">URI=</span><span class="s">&quot;#pfx65c8c6cd-b03b-8634-fd54-636fa66e7722&quot;</span><span class="nt">&gt;</span>
+     <span class="nt">&lt;ds:Transforms&gt;&lt;ds:Transform</span> <span class="na">Algorithm=</span><span class="s">&quot;http://www.w3.org/2000/09/xmldsig#enveloped-signature&quot;</span><span class="nt">/&gt;</span>
+       <span class="nt">&lt;ds:Transform</span> <span class="na">Algorithm=</span><span class="s">&quot;http://www.w3.org/2001/10/xml-exc-c14n#&quot;</span><span class="nt">/&gt;</span>
+     <span class="nt">&lt;/ds:Transforms&gt;</span>
+     <span class="nt">&lt;ds:DigestMethod</span> <span class="na">Algorithm=</span><span class="s">&quot;http://www.w3.org/2000/09/xmldsig#sha1&quot;</span><span class="nt">/&gt;</span>
+       <span class="nt">&lt;ds:DigestValue&gt;</span>gxnHkIizISbLkkB1vSWapmWuQzk=<span class="nt">&lt;/ds:DigestValue&gt;</span>
+     <span class="nt">&lt;/ds:Reference&gt;</span>
+   <span class="nt">&lt;/ds:SignedInfo&gt;</span>
+   <span class="nt">&lt;ds:SignatureValue&gt;</span>Qn69P4a3PQTISfqk/0t2JdJqG1nlswFQt8bNWPZ+K41EIYkCcTyuwlKnCzlTvU1YgNXIvHcFEyKjYAge+s3gwqecATI+yRB9OtD34YxBC4kyGcbq/ETQxIQ515xehfRxLrQjUpRzgHQXMLSjGdgjeelfKsHeSczA9Hp44kasQSs=<span class="nt">&lt;/ds:SignatureValue&gt;</span>
+   <span class="nt">&lt;ds:KeyInfo&gt;</span>
+     <span class="nt">&lt;ds:X509Data&gt;</span>
+       <span class="nt">&lt;ds:X509Certificate&gt;</span>MIICajCCAdOgAwIBAgIBADANBgkqhkiG9w0BAQ0FADBSMQswCQYDVQQGEwJ1czETMBEGA1UECAwKQ2FsaWZvcm5pYTEVMBMGA1UECgwMT25lbG9naW4gSW5jMRcwFQYDVQQDDA5zcC5leGFtcGxlLmNvbTAeFw0xNDA3MTcxNDEyNTZaFw0xNTA3MTcxNDEyNTZaMFIxCzAJBgNVBAYTAnVzMRMwEQYDVQQIDApDYWxpZm9ybmlhMRUwEwYDVQQKDAxPbmVsb2dpbiBJbmMxFzAVBgNVBAMMDnNwLmV4YW1wbGUuY29tMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDZx+ON4IUoIWxgukTb1tOiX3bMYzYQiwWPUNMp+Fq82xoNogso2bykZG0yiJm5o8zv/sd6pGouayMgkx/2FSOdc36T0jGbCHuRSbtia0PEzNIRtmViMrt3AeoWBidRXmZsxCNLwgIV6dn2WpuE5Az0bHgpZnQxTKFek0BMKU/d8wIDAQABo1AwTjAdBgNVHQ4EFgQUGHxYqZYyX7cTxKVODVgZwSTdCnwwHwYDVR0jBBgwFoAUGHxYqZYyX7cTxKVODVgZwSTdCnwwDAYDVR0TBAUwAwEB/zANBgkqhkiG9w0BAQ0FAAOBgQByFOl+hMFICbd3DJfnp2Rgd/dqttsZG/tyhILWvErbio/DEe98mXpowhTkC04ENprOyXi7ZbUqiicF89uAGyt1oqgTUCD1VsLahqIcmrzgumNyTwLGWo17WDAa1/usDhetWAMhgzF/Cnf5ek0nK00m0YZGyc4LzgD0CROMASTWNg==
+       <span class="nt">&lt;/ds:X509Certificate&gt;</span>
+     <span class="nt">&lt;/ds:X509Data&gt;</span>
+   <span class="nt">&lt;/ds:KeyInfo&gt;</span>
+   <span class="nt">&lt;/ds:Signature&gt;</span>
+   <span class="nt">&lt;saml:Subject&gt;</span>
+     <span class="nt">&lt;saml:NameID</span> <span class="na">SPNameQualifier=</span><span class="s">&quot;https://myserviceprovider.atsomeorg.com/shibboleth&quot;</span> <span class="na">Format=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:nameid-format:transient&quot;</span><span class="nt">&gt;</span>_ce3d2948b4cf20146dee0a0b3dd6f69b6cf86f62d7<span class="nt">&lt;/saml:NameID&gt;</span>
+     <span class="nt">&lt;saml:SubjectConfirmation</span> <span class="na">Method=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:cm:bearer&quot;</span><span class="nt">&gt;</span>
+       <span class="nt">&lt;saml:SubjectConfirmationData</span> <span class="na">NotOnOrAfter=</span><span class="s">&quot;2016-04-14T11:50:48Z&quot;</span> <span class="na">Recipient=</span><span class="s">&quot;https://myserviceprovider.atsomeorg.com/Shibboleth.sso/SAML2/POST&quot;</span> <span class="na">InResponseTo=</span><span class="s">&quot;_bec424fa5103428909a30ff1e31168327f79474984&quot;</span><span class="nt">/&gt;</span>
+     <span class="nt">&lt;/saml:SubjectConfirmation&gt;</span>
+   <span class="nt">&lt;/saml:Subject&gt;</span>
+   <span class="nt">&lt;saml:Conditions</span> <span class="na">NotBefore=</span><span class="s">&quot;2016-04-14T11:40:48Z&quot;</span> <span class="na">NotOnOrAfter=</span><span class="s">&quot;2016-04-14T11:50:48Z&quot;</span><span class="nt">&gt;</span>
+     <span class="nt">&lt;saml:AudienceRestriction&gt;</span>
+       <span class="nt">&lt;saml:Audience&gt;</span>https://myserviceprovider.atsomeorg.com/shibboleth<span class="nt">&lt;/saml:Audience&gt;</span>
+     <span class="nt">&lt;/saml:AudienceRestriction&gt;</span>
+   <span class="nt">&lt;/saml:Conditions&gt;</span>
+   <span class="nt">&lt;saml:AuthnStatement</span> <span class="na">AuthnInstant=</span><span class="s">&quot;2016-04-14T11:40:48Z&quot;</span> <span class="na">SessionNotOnOrAfter=</span><span class="s">&quot;2016-04-14T11:50:48Z&quot;</span> <span class="na">SessionIndex=</span><span class="s">&quot;_be9967abd904ddcae3c0eb4189adbe3f71e327cf93&quot;</span><span class="nt">&gt;</span>
+     <span class="nt">&lt;saml:AuthnContext&gt;</span>
+       <span class="nt">&lt;saml:AuthnContextClassRef&gt;</span>urn:oasis:names:tc:SAML:2.0:ac:classes:Password<span class="nt">&lt;/saml:AuthnContextClassRef&gt;</span>
+     <span class="nt">&lt;/saml:AuthnContext&gt;</span>
+   <span class="nt">&lt;/saml:AuthnStatement&gt;</span>
+   <span class="nt">&lt;saml:AttributeStatement&gt;</span>
+     <span class="nt">&lt;saml:Attribute</span> <span class="na">Name=</span><span class="s">&quot;uid&quot;</span> <span class="na">NameFormat=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:attrname-format:basic&quot;</span><span class="nt">&gt;</span>
+       <span class="nt">&lt;saml:AttributeValue</span> <span class="na">xsi:type=</span><span class="s">&quot;xs:string&quot;</span><span class="nt">&gt;</span>test<span class="nt">&lt;/saml:AttributeValue&gt;</span>
+     <span class="nt">&lt;/saml:Attribute&gt;</span>
+     <span class="nt">&lt;saml:Attribute</span> <span class="na">Name=</span><span class="s">&quot;mail&quot;</span> <span class="na">NameFormat=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:attrname-format:basic&quot;</span><span class="nt">&gt;</span>
+       <span class="nt">&lt;saml:AttributeValue</span> <span class="na">xsi:type=</span><span class="s">&quot;xs:string&quot;</span><span class="nt">&gt;</span>test&#64;example.com<span class="nt">&lt;/saml:AttributeValue&gt;</span>
+     <span class="nt">&lt;/saml:Attribute&gt;</span>
+     <span class="nt">&lt;saml:Attribute</span> <span class="na">Name=</span><span class="s">&quot;eduPersonAffiliation&quot;</span> <span class="na">NameFormat=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:attrname-format:basic&quot;</span><span class="nt">&gt;</span>
+       <span class="nt">&lt;saml:AttributeValue</span> <span class="na">xsi:type=</span><span class="s">&quot;xs:string&quot;</span><span class="nt">&gt;</span>users<span class="nt">&lt;/saml:AttributeValue&gt;</span>
+       <span class="nt">&lt;saml:AttributeValue</span> <span class="na">xsi:type=</span><span class="s">&quot;xs:string&quot;</span><span class="nt">&gt;</span>examplerole1<span class="nt">&lt;/saml:AttributeValue&gt;</span>
+     <span class="nt">&lt;/saml:Attribute&gt;</span>
+   <span class="nt">&lt;/saml:AttributeStatement&gt;</span>
+ <span class="nt">&lt;/saml:Assertion&gt;</span>
+<span class="nt">&lt;/samlp:Response&gt;</span>
+</pre>
+<dl class="docutils">
+<dt>and instructs the user browser to make a HTTP POST request to - in this case - <a class="reference external" href="https://myserviceprovider.atsomeorg.com/Shibboleth.sso/SAML2/POST">https://myserviceprovider.atsomeorg.com/Shibboleth.sso/SAML2/POST</a>.</dt>
+<dd><ul class="first last simple">
+<li><em>InResponseTo</em> contains the value that was sent as an ID in the SAML Request so that the Service Provider can match this to the request it sent. ( and to avoid replay attacks )</li>
+<li><em>IssueIstant</em>, <em>NotBefore</em> and <em>NotOnOrAfter</em> define a time interval for which the SAML Response ( and Assertion ) is valid, in order to protect against replay attacks.</li>
+<li>The Assertion contains in <em>Issuer</em> field so that the Service Provider can verify that the Assertion comes from the Identity Provider it expects it to come from.</li>
+<li>The Assertion also contains an AudienceRestriction element that defines that this Assertion is targeted for a specific Service Provider and cannot be used for any other Service Provider.</li>
+<li>The Assertion contains a Subject element which identifies the authenticated principal(user)</li>
+<li>The AttributeStatement part of the Assertion contains attributes and their values for the specific user that comes as authenticated.</li>
+</ul>
+</dd>
+</dl>
+<p>The Assertion (and possibly the whole SAML Response) is signed with a <a class="reference external" href="https://en.wikipedia.org/wiki/XML_Signature">XML Signature</a> that protects the integrity of the Assertion (or response) and verifies that it has not
+been modified in transit.</p>
+<p>Upon receiving the SAML Response, the Service Provider can verify its contents and structure, validate the signature and subsequently treat the user as authenticated initiating a web session for them.</p>
+<dl class="docutils">
+<dt>By now, you should have wondered about at least a couple of things:</dt>
+<dd><ol class="first last arabic simple">
+<li>How does the Service Provider know and trust the Identity Provider?</li>
+<li>How does the Identity Provider know and trust the Service Provider?</li>
+<li>The Identity Provider signs that Assertion with what?</li>
+<li>How does the Service Provider verify the signature when it receives the Assertion?</li>
+</ol>
+</dd>
+<dt>What is purposely left out here for brevity is that the Identity Provider and the Service Provider need to bootstrap their trust somehow before all the above can happen. In order to do that, they need to exchange metadata. The metadata contain information like the certificate with the public key that corresponds to the private key that the Identity Provider uses to sign the Assertions, the URLs that correspond to each entity's bindings, the algorithms they support/request, etc. There are two ways for them to know each other's metadata</dt>
+<dd><ul class="first last simple">
+<li>Either the Identity Provider and the Service Provider bootstrap their trust relationship bilaterally by exchanging metadata in a secure manner.</li>
+<li>Or both delegate this trust to a 3rd party by joining a Federation. The Federation Operator then assumes the task to gather the metadata from all entities that participate, sign and publish the aggregates. Each Identity Provider and Service Provider then consumes that metadata in order to get information about the rest of the entities that participate in that Federation.</li>
+</ul>
+</dd>
+</dl>
+</div>
+</div>
+<div class="section" id="how-office-365-saml-implementation-works">
+<h2>How Office 365 SAML implementation works</h2>
+<p>The Office 365 service provider implementation is a weird mixture of WS-Trust specification and SAML 2.0 Web Browser SSO Profile. That is, Office 365 supports SSO both with WS-Trust and with SAML 2.0 Web Browser SSO but the two implementations are not isolated. This is why, for example, in the <a class="reference external" href="https://msdn.microsoft.com/en-us/library/azure/jj205456.aspx">official documentation for SAML 2.0 SSO</a> shibboleth identity provider is referred to as a <em>Security Token Service</em>, terminology that is relevant to WS-Trust specification but not SAML.
+The SAML service provider is, however, SAML 2.0 compliant-ish (sic) from the perspective of a SAML identity provider and uses a token translation service to convert SAML messages to WS-Trust messages internally. This encapsulation becomes specifically relevant later on, when discussing the attack surface in <a class="reference internal" href="#how-could-this-be-exploited">How could this be exploited?</a> as the vulnerability found in the SAML Service Provider implementation also affects the WS-Trust SSO implementation because of this token translation service.</p>
+<p>However, for the sake of simplicity, for the rest of this section the Office 365 service provider is considered to be a SAML service provider.</p>
+<p>One additional thing to keep in mind is that Office 365 does not support Just-In-Time provisioning for accounts authenticating via SAML, so for Signle Sign On to work the account must already be registered in Azure AD for the
+specific tenant. This can happen via Directory Synchronization or via user provisioning with the help of an IDM system, but this is out of the scope of this post.</p>
+<dl class="docutils">
+<dt>The attributes that are required to be released from an Identity Provider to the Office 365 Service Provider for the user are two:</dt>
+<dd><ul class="first last simple">
+<li>The UPN of the user expressed in an attribute with name IDPEmail</li>
+<li>An ImmutableId that is what uniquely identifies the user, expressed in the Subject of the SAML Assertion</li>
+</ul>
+</dd>
+</dl>
+<p>The process starts with the user accessing <a class="reference external" href="https://portal.office.com">Office 365 portal</a>, being redirected to <em>https://login.microsoftonline.com/login.srf</em> where he is greeted with the following form</p>
+<div class="figure">
+<img alt="Office 365 portal login form" src="/images/office365-1.png" style="width: 80%;" />
+<p class="caption">Office 365 portal login form</p>
+</div>
+<p>Upon entering the username and pressing TAB or clicking on the password field, the page makes an XHR to <em>https://login.microsoftonline.com/common/userrealm</em> in order to check if the user's domain corresponds to an Office 365
+tenant</p>
+<pre class="code literal-block">
+GET /common/userrealm/?user=ikakavas&#64;testdomain.gr&amp;api-version=2.1&amp;stsRequest=rQIIAbNSzigpKSi20tcvyC8qSczRy09Ly0xO1UvOz9XLL0rPTAGxioS4BMruuVuZ2Fh77Wj-e6KxLMF2FaMaTp36OYl5KZl56XqJxQUVFxgZu5hYDA2MjTcxsfo6-zp5nmCacFbuFpOgf1G6Z0p4sVtqSmpRYklmft4jJt7Q4tQi_7ycypD87NS8Scx8OfnpmXnxxUVp8Wk5-eVAAaDxBYnJJfElmcnZqSW7mFVSU00tTCxTUnRNkpOTdU2Sksx0kwxSzXRTzZMtTC1ME00Mk1MOsGwIucAi8IOFcREr0C-3A6ZLrn182Gt-tWV-vVlpwi5OW-L8Yl-SWJSeWmKrapSWkpqWWJpTAhYGAA2&amp;checkForMicrosoftAccount=false HTTP/1.1
+Host: login.microsoftonline.com
+User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:45.0) Gecko/20100101 Firefox/45.0
+Accept: application/json
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate, br
+DNT: 1
+X-Requested-With: XMLHttpRequest
+Referer: https://login.microsoftonline.com/login.srf?wa=wsignin1.0&amp;rpsnv=4&amp;ct=1460721662&amp;rver=6.7.6640.0&amp;wp=MCMBI&amp;wreply=https%3a%2f%2fportal.office.com%2flanding.aspx%3ftarget%3d%252fdefault.aspx&amp;lc=1033&amp;id=501392&amp;msafed=0&amp;client-request-id=3a47de76-3c34-4a3b-b883-fdc88176603d
+</pre>
+<p>If the domain is known and configured as federated, the user's browser is instructed to make an HTTP POST request to the HTTP-POST binding URL of the Identity Provider for that domain with a SAML Response in the body that looks like this:</p>
+<pre class="code xml literal-block">
+<span class="nt">&lt;samlp:AuthnRequest</span> <span class="na">xmlns:samlp=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:protocol&quot;</span>
+                   <span class="na">xmlns:saml=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:assertion&quot;</span>
+                   <span class="na">ID=</span><span class="s">&quot;_f6daef39-fb54-407e-abb4-c75d261b75ae&quot;</span>
+                   <span class="na">IssueInstant=</span><span class="s">&quot;2016-04-11T21:13:44Z&quot;</span>
+                   <span class="na">Version=</span><span class="s">&quot;2.0&quot;</span>
+                   <span class="na">AssertionConsumerServiceIndex=</span><span class="s">&quot;0&quot;</span>
+                   <span class="nt">&gt;</span>
+   <span class="nt">&lt;saml:Issuer&gt;</span>urn:federation:MicrosoftOnline<span class="nt">&lt;/saml:Issuer&gt;</span>
+   <span class="nt">&lt;samlp:NameIDPolicy</span> <span class="na">Format=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:nameid-format:persistent&quot;</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/samlp:AuthnRequest&gt;</span>
+</pre>
+<p>The user is then prompted for authentication in the Identity Provider</p>
+<div class="figure">
+<img alt="Idenity Provider login form" src="/images/office365-2.png" />
+<p class="caption">Idenity Provider login form</p>
+</div>
+<p>and subsequently their browser is instructed to make an HTTP POST back to the HTTP-POST binding URL of Office 365, <em>https://login.microsoftonline.com/login.srf</em> with the SAML Response containing the Assertion in the request body. En example of this SAML Response is seen below</p>
+<pre class="code xml literal-block">
+<span class="nt">&lt;saml2p:Response</span> <span class="na">Destination=</span><span class="s">&quot;https://login.microsoftonline.com/login.srf&quot;</span>
+                <span class="na">ID=</span><span class="s">&quot;_cefc5f992f2e455d7b3e52522fc479db&quot;</span> <span class="na">InResponseTo=</span><span class="s">&quot;_f6daef39-fb54-407e-abb4-c75d261b75ae&quot;</span>
+                <span class="na">IssueInstant=</span><span class="s">&quot;2016-04-11T21:14:35.365Z&quot;</span> <span class="na">Version=</span><span class="s">&quot;2.0&quot;</span> <span class="na">xmlns:saml2p=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:protocol&quot;</span>
+                <span class="na">xmlns:xsd=</span><span class="s">&quot;http://www.w3.org/2001/XMLSchema&quot;</span><span class="nt">&gt;</span>
+   <span class="nt">&lt;saml2:Issuer</span> <span class="na">xmlns:saml2=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:assertion&quot;</span><span class="nt">&gt;</span>https://idp.admin.grnet.gr/idp/shibboleth<span class="nt">&lt;/saml2:Issuer&gt;</span>
+   <span class="nt">&lt;ds:Signature</span> <span class="na">xmlns:ds=</span><span class="s">&quot;http://www.w3.org/2000/09/xmldsig#&quot;</span><span class="nt">&gt;</span>
+       <span class="nt">&lt;ds:SignedInfo&gt;</span>
+           <span class="nt">&lt;ds:CanonicalizationMethod</span> <span class="na">Algorithm=</span><span class="s">&quot;http://www.w3.org/2001/10/xml-exc-c14n#&quot;</span> <span class="nt">/&gt;</span>
+           <span class="nt">&lt;ds:SignatureMethod</span> <span class="na">Algorithm=</span><span class="s">&quot;http://www.w3.org/2000/09/xmldsig#rsa-sha1&quot;</span> <span class="nt">/&gt;</span>
+           <span class="nt">&lt;ds:Reference</span> <span class="na">URI=</span><span class="s">&quot;#_cefc5f992f2e455d7b3e52522fc479db&quot;</span><span class="nt">&gt;</span>
+               <span class="nt">&lt;ds:Transforms&gt;</span>
+                   <span class="nt">&lt;ds:Transform</span> <span class="na">Algorithm=</span><span class="s">&quot;http://www.w3.org/2000/09/xmldsig#enveloped-signature&quot;</span> <span class="nt">/&gt;</span>
+                   <span class="nt">&lt;ds:Transform</span> <span class="na">Algorithm=</span><span class="s">&quot;http://www.w3.org/2001/10/xml-exc-c14n#&quot;</span><span class="nt">&gt;</span>
+                       <span class="nt">&lt;ec:InclusiveNamespaces</span> <span class="na">PrefixList=</span><span class="s">&quot;xsd&quot;</span> <span class="na">xmlns:ec=</span><span class="s">&quot;http://www.w3.org/2001/10/xml-exc-c14n#&quot;</span><span class="nt">/&gt;</span>
+                   <span class="nt">&lt;/ds:Transform&gt;</span>
+               <span class="nt">&lt;/ds:Transforms&gt;</span>
+               <span class="nt">&lt;ds:DigestMethod</span> <span class="na">Algorithm=</span><span class="s">&quot;http://www.w3.org/2000/09/xmldsig#sha1&quot;</span> <span class="nt">/&gt;</span>
+               <span class="nt">&lt;ds:DigestValue&gt;</span>dc1f3jn97lZ6FWdxGxsEWxXNsTM=<span class="nt">&lt;/ds:DigestValue&gt;</span>
+           <span class="nt">&lt;/ds:Reference&gt;</span>
+       <span class="nt">&lt;/ds:SignedInfo&gt;</span>
+       <span class="nt">&lt;ds:SignatureValue&gt;</span>
+       Removed for brevity
+       <span class="nt">&lt;/ds:SignatureValue&gt;</span>
+       <span class="nt">&lt;ds:KeyInfo&gt;</span>
+           <span class="nt">&lt;ds:X509Data&gt;</span>
+               <span class="nt">&lt;ds:X509Certificate&gt;</span>
+               Removed for brevity
+               <span class="nt">&lt;/ds:X509Certificate&gt;</span>
+          <span class="nt">&lt;/ds:X509Data&gt;</span>
+       <span class="nt">&lt;/ds:KeyInfo&gt;</span>
+   <span class="nt">&lt;/ds:Signature&gt;</span>
+   <span class="nt">&lt;saml2p:Status&gt;</span>
+       <span class="nt">&lt;saml2p:StatusCode</span> <span class="na">Value=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:status:Success&quot;</span> <span class="nt">/&gt;</span>
+   <span class="nt">&lt;/saml2p:Status&gt;</span>
+   <span class="nt">&lt;saml2:Assertion</span> <span class="na">ID=</span><span class="s">&quot;_b971f4e7f575bcc9cbc9034246c62c98&quot;</span> <span class="na">IssueInstant=</span><span class="s">&quot;2016-04-11T21:14:35.365Z&quot;</span> <span class="na">Version=</span><span class="s">&quot;2.0&quot;</span>
+                    <span class="na">xmlns:saml2=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:assertion&quot;</span> <span class="na">xmlns:xsd=</span><span class="s">&quot;http://www.w3.org/2001/XMLSchema&quot;</span><span class="nt">&gt;</span>
+       <span class="nt">&lt;saml2:Issuer&gt;</span>https://idp.admin.grnet.gr/idp/shibboleth<span class="nt">&lt;/saml2:Issuer&gt;</span>
+       <span class="nt">&lt;ds:Signature</span> <span class="na">xmlns:ds=</span><span class="s">&quot;http://www.w3.org/2000/09/xmldsig#&quot;</span><span class="nt">&gt;</span>
+           <span class="nt">&lt;ds:SignedInfo&gt;</span>
+               <span class="nt">&lt;ds:CanonicalizationMethod</span> <span class="na">Algorithm=</span><span class="s">&quot;http://www.w3.org/2001/10/xml-exc-c14n#&quot;</span> <span class="nt">/&gt;</span>
+               <span class="nt">&lt;ds:SignatureMethod</span> <span class="na">Algorithm=</span><span class="s">&quot;http://www.w3.org/2000/09/xmldsig#rsa-sha1&quot;</span> <span class="nt">/&gt;</span>
+               <span class="nt">&lt;ds:Reference</span> <span class="na">URI=</span><span class="s">&quot;#_b971f4e7f575bcc9cbc9034246c62c98&quot;</span><span class="nt">&gt;</span>
+                   <span class="nt">&lt;ds:Transforms&gt;</span>
+                       <span class="nt">&lt;ds:Transform</span> <span class="na">Algorithm=</span><span class="s">&quot;http://www.w3.org/2000/09/xmldsig#enveloped-signature&quot;</span> <span class="nt">/&gt;</span>
+                       <span class="nt">&lt;ds:Transform</span> <span class="na">Algorithm=</span><span class="s">&quot;http://www.w3.org/2001/10/xml-exc-c14n#&quot;</span><span class="nt">&gt;</span>
+                           <span class="nt">&lt;ec:InclusiveNamespaces</span> <span class="na">PrefixList=</span><span class="s">&quot;xsd&quot;</span> <span class="na">xmlns:ec=</span><span class="s">&quot;http://www.w3.org/2001/10/xml-exc-c14n#&quot;</span><span class="nt">/&gt;</span>
+                       <span class="nt">&lt;/ds:Transform&gt;</span>
+                   <span class="nt">&lt;/ds:Transforms&gt;</span>
+                   <span class="nt">&lt;ds:DigestMethod</span> <span class="na">Algorithm=</span><span class="s">&quot;http://www.w3.org/2000/09/xmldsig#sha1&quot;</span> <span class="nt">/&gt;</span>
+                   <span class="nt">&lt;ds:DigestValue&gt;</span>WBgE+nW+3g9P5XpiZwGE06MT//g=<span class="nt">&lt;/ds:DigestValue&gt;</span>
+               <span class="nt">&lt;/ds:Reference&gt;</span>
+           <span class="nt">&lt;/ds:SignedInfo&gt;</span>
+           <span class="nt">&lt;ds:SignatureValue&gt;</span>
+           Removed for brevity
+           <span class="nt">&lt;/ds:SignatureValue&gt;</span>
+           <span class="nt">&lt;ds:KeyInfo&gt;</span>
+               <span class="nt">&lt;ds:X509Data&gt;</span>
+                   <span class="nt">&lt;ds:X509Certificate&gt;</span>
+                   Removed for brevity
+                   <span class="nt">&lt;/ds:X509Certificate&gt;</span>
+               <span class="nt">&lt;/ds:X509Data&gt;</span>
+           <span class="nt">&lt;/ds:KeyInfo&gt;</span>
+       <span class="nt">&lt;/ds:Signature&gt;</span>
+       <span class="nt">&lt;saml2:Subject&gt;</span>
+           <span class="nt">&lt;saml2:NameID</span> <span class="na">Format=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:nameid-format:persistent&quot;</span><span class="nt">&gt;</span>This is where my ImmutableId is<span class="nt">&lt;/saml2:NameID&gt;</span>
+           <span class="nt">&lt;saml2:SubjectConfirmation</span> <span class="na">Method=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:cm:bearer&quot;</span><span class="nt">&gt;</span>
+               <span class="nt">&lt;saml2:SubjectConfirmationData</span> <span class="na">Address=</span><span class="s">&quot;2a02:214d:811b:7200:dc15:b7bc:a304:3738&quot;</span> <span class="na">InResponseTo=</span><span class="s">&quot;_f6daef39-fb54-407e-abb4-c75d261b75ae&quot;</span>
+                                              <span class="na">NotOnOrAfter=</span><span class="s">&quot;2016-04-11T21:19:35.384Z&quot;</span> <span class="na">Recipient=</span><span class="s">&quot;https://login.microsoftonline.com/login.srf&quot;</span><span class="nt">/&gt;</span>
+           <span class="nt">&lt;/saml2:SubjectConfirmation&gt;</span>
+       <span class="nt">&lt;/saml2:Subject&gt;</span>
+       <span class="nt">&lt;saml2:Conditions</span> <span class="na">NotBefore=</span><span class="s">&quot;2016-04-11T21:14:35.365Z&quot;</span> <span class="na">NotOnOrAfter=</span><span class="s">&quot;2016-04-11T21:19:35.365Z&quot;</span><span class="nt">&gt;</span>
+           <span class="nt">&lt;saml2:AudienceRestriction&gt;</span>
+               <span class="nt">&lt;saml2:Audience&gt;</span>urn:federation:MicrosoftOnline<span class="nt">&lt;/saml2:Audience&gt;</span>
+           <span class="nt">&lt;/saml2:AudienceRestriction&gt;</span>
+       <span class="nt">&lt;/saml2:Conditions&gt;</span>
+       <span class="nt">&lt;saml2:AuthnStatement</span> <span class="na">AuthnInstant=</span><span class="s">&quot;2016-04-11T21:14:35.027Z&quot;</span> <span class="na">SessionIndex=</span><span class="s">&quot;_91380d0480ac9af6bcb19f3b26f0ea81&quot;</span><span class="nt">&gt;</span>
+           <span class="nt">&lt;saml2:SubjectLocality</span> <span class="na">Address=</span><span class="s">&quot;2a02:214d:811b:7200:dc15:b7bc:a304:3738&quot;</span> <span class="nt">/&gt;</span>
+           <span class="nt">&lt;saml2:AuthnContext&gt;</span>
+               <span class="nt">&lt;saml2:AuthnContextClassRef&gt;</span>urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport<span class="nt">&lt;/saml2:AuthnContextClassRef&gt;</span>
+           <span class="nt">&lt;/saml2:AuthnContext&gt;</span>
+       <span class="nt">&lt;/saml2:AuthnStatement&gt;</span>
+       <span class="nt">&lt;saml2:AttributeStatement&gt;</span>
+           <span class="nt">&lt;saml2:Attribute</span> <span class="na">FriendlyName=</span><span class="s">&quot;IDPEmail&quot;</span> <span class="na">Name=</span><span class="s">&quot;IDPEmail&quot;</span> <span class="na">NameFormat=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:attrname-format:uri&quot;</span><span class="nt">&gt;</span>
+               <span class="nt">&lt;saml2:AttributeValue</span> <span class="na">xmlns:xsi=</span><span class="s">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span>
+                                     <span class="na">xsi:type=</span><span class="s">&quot;xsd:string&quot;</span><span class="nt">&gt;</span>ikakavas&#64;mymail.example.com<span class="nt">&lt;/saml2:AttributeValue&gt;</span>
+           <span class="nt">&lt;/saml2:Attribute&gt;</span>
+       <span class="nt">&lt;/saml2:AttributeStatement&gt;</span>
+   <span class="nt">&lt;/saml2:Assertion&gt;</span>
+<span class="nt">&lt;/saml2p:Response&gt;</span>
+</pre>
+<p>The ImmutableId that uniquely identifies the user is in the Subject of the Assertion</p>
+<pre class="code xml literal-block">
+<span class="nt">&lt;saml2:Subject&gt;</span>
+       <span class="nt">&lt;saml2:NameID</span> <span class="na">Format=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:nameid-format:persistent&quot;</span><span class="nt">&gt;</span>This is where my ImmutableId is<span class="nt">&lt;/saml2:NameID&gt;</span>
+       <span class="nt">&lt;saml2:SubjectConfirmation</span> <span class="na">Method=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:cm:bearer&quot;</span><span class="nt">&gt;</span>
+           <span class="nt">&lt;saml2:SubjectConfirmationData</span> <span class="na">Address=</span><span class="s">&quot;2a02:214d:811b:7200:dc15:b7bc:a304:3738&quot;</span> <span class="na">InResponseTo=</span><span class="s">&quot;_f6daef39-fb54-407e-abb4-c75d261b75ae&quot;</span>
+                                              <span class="na">NotOnOrAfter=</span><span class="s">&quot;2016-04-11T21:19:35.384Z&quot;</span> <span class="na">Recipient=</span><span class="s">&quot;https://login.microsoftonline.com/login.srf&quot;</span><span class="nt">/&gt;</span>
+       <span class="nt">&lt;/saml2:SubjectConfirmation&gt;</span>
+<span class="nt">&lt;/saml2:Subject&gt;</span>
+</pre>
+<p>and the IDPEmail that corresponds to the UPN of the existing account of the user in Azure AD is contained in the Attribute Statement</p>
+<pre class="code xml literal-block">
+<span class="nt">&lt;saml2:AttributeStatement&gt;</span>
+       <span class="nt">&lt;saml2:Attribute</span> <span class="na">FriendlyName=</span><span class="s">&quot;IDPEmail&quot;</span> <span class="na">Name=</span><span class="s">&quot;IDPEmail&quot;</span> <span class="na">NameFormat=</span><span class="s">&quot;urn:oasis:names:tc:SAML:2.0:attrname-format:uri&quot;</span><span class="nt">&gt;</span>
+           <span class="nt">&lt;saml2:AttributeValue</span> <span class="na">xmlns:xsi=</span><span class="s">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span>
+                                     <span class="na">xsi:type=</span><span class="s">&quot;xsd:string&quot;</span><span class="nt">&gt;</span>ikakavas&#64;mymail.example.com<span class="nt">&lt;/saml2:AttributeValue&gt;</span>
+       <span class="nt">&lt;/saml2:Attribute&gt;</span>
+<span class="nt">&lt;/saml2:AttributeStatement&gt;</span>
+</pre>
+<p>It can also be seen that both the SAML Response and the SAML Assertion are digitally signed.</p>
+</div>
+<div class="section" id="what-was-wrong-about-the-office-365-implentation">
+<h2>What was wrong about the Office 365 Implentation?</h2>
+<p>In the process of integrating Office 365 as a Service Provider in the <a class="reference external" href="https://aai.grnet.gr">Greek AAI Federation</a> using the AAI365 solution that <a class="reference external" href="http://www.sola-prihodnosti.si/en/">Šola prihodnosti Maribor</a> offers we came up with some interesting flaws in how Microsoft implements the SAML Service Provider.</p>
+<div class="section" id="what-about-saml-nameid">
+<h3>What about SAML NameID?</h3>
+<p>The first thing we noticed is that Office 365 SAML Service Provider disregards the Subject of the Assertion, even though it contains the ImmutableId value that should be the UUID of the user in the Azure AD that would uniquely identify him.</p>
+<p>A name identifier, represented by the &lt;NameID&gt; element in SAML 2, is generally used to identify the subject of a SAML assertion. Name identifiers can be anything; an email address or a Kerberos principal name are common, every-day examples of such information. SAML 2 also defines more specialized identifier types with particular properties useful in federated applications. Strictly speaking, SAML assertions don't have to contain an identifier. The subject may be implicitly identified as the bearer of the token or anybody able to demonstrate possession of a key. In SSO use cases, one reason for including an identifier is to enable the relying party to refer to the subject later, such as in a query, or a logout request.</p>
+<p>From an attacker's perspective, the fact that the correctness of the NameID is not checked, makes things easier since the ImmutableID usually comes from AD objectGUID and it's hard to guess or bruteforce.</p>
+</div>
+<div class="section" id="scoping">
+<h3>Scoping</h3>
+<p>That leaves the value of the IDPEmail attribute that corresponds to the UPN of the user in the Azure AD, as the sufficient piece of information to identify the user in the Assertion. Well, ok, this is not necessarily
+bad in itself as the Assertion also contains the Issuer that generated and signed it, so an unrelated Identity Provider cannot create assertions for other domain's/tenant's users, right? Wrong.</p>
+<p>As it turns out, the Service Provider used the Issuer of the Assertion only to find the mathing certificate in order to verify the SAML Response/Assertion signature, but didn't perform any sanity checks on the supplied
+value of the IDPEmail attribute. That basically means that it would happily consume assertions, asserting that Identity Provider X has authenticated users of Identity Provider Y.</p>
+<p>In SAML world this can be  mitigated with the help of scoped attributes. These are attributes that have 2 parts, a value and a scope in the format <a class="reference external" href="mailto:value&#64;scope">value&#64;scope</a>. The Identity Provider publishes the scope that it
+is authoritative for in it's Metadata and Service Providers are supposed to check that when they consume a scoped attribute from an Identity Provider, they check that the scope that came matches the published one. UPN a.k.a. IDPEmail is scoped by definition as the domain part needs to be one of the (sub-)domains that the administrator has verified in an Office365 tenant.</p>
+</div>
+<div class="section" id="how-could-this-be-exploited">
+<h3>How could this be exploited?</h3>
+<p>At the time of discovery we already had one Office 365 tenant setup as a playground for connecting Office 365 and SAML 2 identity providers. We had a basic Active Directory instance and <a class="reference external" href="https://simplesamlphp.org/SimpleSAMLphp">SimpleSAMLphp</a> as our Identity Provider.</p>
+<p>The first thing was setting up another organization playing a part of the victim in our experiments. This included a new Office 365 trial subscription and another SimpleSAMLphp instance with a different EntityID.</p>
+<p>Our testing enviroment therefore looked something like this:</p>
+<ol class="arabic simple">
+<li>First Office 365 subscription with <strong>someorg-attacker.com</strong> being authenticated at <a class="reference external" href="http://idp.someorg-attacker.com/">http://idp.someorg-attacker.com/</a></li>
+<li>Second Office 365 subscription with <strong>someorg-victim.com</strong> being authenticated at <a class="reference external" href="http://idp.someorg-victim.com/">http://idp.someorg-victim.com/</a></li>
+</ol>
+<p>At this point we had to add fake user accounts to <em>someorg-attacker's</em> user directory and see what would happen when we try to login with them. With Active Directory this translates to adding a new <em>alternative UPN suffix</em> and then adding new users via the included tools.</p>
+<p>The user directory at <em>someorg-victim</em> contained entries for their own users:</p>
+<div class="figure">
+<img alt="Active Directory users (victim organization)" src="/images/ADusers-victim.png" />
+</div>
+<p>The user directory at <em>someorg-attacker</em> contained user entries for both organizations:</p>
+<div class="figure">
+<img alt="Active Directory users (attacker organization)" src="/images/ADusers-attacker.png" />
+</div>
+<p>It was now time to test our hypothesis. As described above under <a class="reference internal" href="#how-office-365-saml-implementation-works">How Office 365 SAML implementation works</a>, the process started at <cite>https://login.microsoftonline.com/</cite> and for the first step we had to use <em>something&#64;someorg-attacker.com</em> as the username for the login portal to redirect us to <em>someorg-attacker's</em> Identity Provider.</p>
+<p>When presented with Identity Provider's login form we used one of our fake users created under <em>someorg-victim.com</em> (e.g. <a class="reference external" href="mailto:john.smith&#64;someorg-victim.com">john.smith&#64;someorg-victim.com</a>) domain and happily finished our login process on the Identity Provider.</p>
+<p><strong>This was the critical point where things should simply stopped working and Microsoft's login portal should threw an error, yet nothing special happened.</strong> We were welcomed by <a class="reference external" href="http://portal.office.com/">Office Portal</a> page logged in as <em>john.smith&#64;someorg-victim.com</em>. What followed was a moment of silence where we weren't sure whether to be happy about the discovery or terrified about its implications.</p>
+<p>For the first few minutes this looked like a critical vulnerability affecting only Microsoft's SAML 2.0 implementation and since SAML usually isn't the preferred Single Sign On protocol for Office 365, the actual number of affected Office 365 subscriptions seemed quite low and limited mostly to the educational sector.</p>
+<p>On the other hand, we had identified that the two SSO implementations are intertwined and that SAML 2.0 messages are translated to WS-Trust messages. So, this left us with  another open question - what happens if we try to login with a user that has its domain federated using <a class="reference external" href="https://msdn.microsoft.com/en-us/library/bb897402.aspx">Active Directory Federations Services</a>? Luckily, Šola prihodnosti Maribor (one of the partners in the discovery of this vulnerability, not a randomly selected victim) uses Office 365 with ADFS and it was therefore quite simple to answer this one. We added <em>klemen.bratec&#64;spmb.si</em> to our <em>someorg-attacker's</em> user directory, repeated the procedure described above and <strong>it worked</strong>! The SAML Service Provider consumed the SAML assertion from the attacker's org Identity Provider even though the spmb.si domain is configured to be federated with WS-Trust, forwarded it to the token translation service which translated it to an WS-Trust token and ... <strong>we were in</strong>.</p>
+<p>Now this is where things became really interesting as we were not limited to organizations using SAML and could login with almost any federated Office 365 user (the exception being those with enabled Multi-Factor Authentication).</p>
+</div>
+<div class="section" id="how-bad-was-it">
+<h3>How bad was it?</h3>
+<p>Who is actually using Office 365 anyway? And out of them who has configured their domains as federated, thus being vulnerable? A quick search reveals <a class="reference external" href="https://products.office.com/en-us/business/office-365-customer-stories-office-testimonials">this list</a> of customer stories, which is not by any means exclusive. It contains</p>
+<pre class="code literal-block">
+curl -s https://products.office.com/en-us/XMLData/PMG-CustomerStoryContent.xml?_=1460974613740 \
+| xmlstarlet sel -t -v &quot;count(/cusStoryTypes/cusStoryType/industry/story)&quot;
+</pre>
+<p>152 Customer stories</p>
+<p>Getting the customer names with</p>
+<pre class="code literal-block">
+curl -s https://products.office.com/en-us/XMLData/PMG-CustomerStoryContent.xml?_=1460974613740 \
+| xmlstarlet sel -t -n -v &quot;/cusStoryTypes/cusStoryType/industry/story/companyName&quot;
+</pre>
+<p>reveals some interesting names such as <a class="reference external" href="http://www.telefonika.com">telefonika</a>, <a class="reference external" href="http://www.caltex.com.au">Caltex Australia</a>, <a class="reference external" href="http://www.astonmartin.com">Aston Martin</a>, <a class="reference external" href="http://www.hellyhansen.com">Helly Hansen</a>, <a class="reference external" href="http://www.gsu.edu">Georgia State University</a>, <a class="reference external" href="http://www.jal.com">Japan Airlines</a>, <a class="reference external" href="http://www.sccgov.org">Santa Clara County</a>, <a class="reference external" href="http://www.cityofchicago.org">City of Chicago,IL</a>, <a class="reference external" href="http://www.ba.com">British Airways</a>.</p>
+<p>If only there was a way for an attacker to easily check which of these companies have their domain configured as federated... Scroll up a little to the <a class="reference internal" href="#how-office-365-saml-implementation-works">How Office 365 SAML implementation works</a> where we discussed how the Office 365 SAML Service Provider handles the IdP Discovery. Yes, it turns out that there is an endpoint that one can use to check if a domain is federated or not</p>
+<p><em>https://login.microsoftonline.com/common/userrealm/?user=something&#64;domain&amp;api-version=2.1&amp;checkForMicrosoftAccount=false</em></p>
+<p>An HTTP GET request for a domain that is federated, returns the following json response</p>
+<pre class="code json literal-block">
+<span class="p">{</span>
+<span class="nt">&quot;NameSpaceType&quot;</span><span class="p">:</span><span class="s2">&quot;Federated&quot;</span><span class="p">,</span>
+<span class="nt">&quot;federation_protocol&quot;</span><span class="p">:</span><span class="s2">&quot;WSTrust&quot;</span><span class="p">,</span>
+<span class="nt">&quot;Login&quot;</span><span class="p">:</span><span class="s2">&quot;something&#64;ba.com&quot;</span><span class="p">,</span>
+<span class="nt">&quot;AuthURL&quot;</span><span class="p">:</span><span class="s2">&quot;https://sts.baplc.com/adfs/ls/?username=something%40ba.com&amp;wa=wsignin1.0&amp;wtrealm=urn%3afederation%3aMicrosoftOnline&amp;wctx=&quot;</span><span class="p">,</span>
+<span class="nt">&quot;DomainName&quot;</span><span class="p">:</span><span class="s2">&quot;ba.com&quot;</span><span class="p">,</span>
+<span class="nt">&quot;FederationBrandName&quot;</span><span class="p">:</span><span class="s2">&quot;BA.COM&quot;</span><span class="p">,</span>
+<span class="nt">&quot;cloudinstancename&quot;</span><span class="p">:</span><span class="s2">&quot;login.microsoftonline.com&quot;</span>
+<span class="p">}</span>
+</pre>
+<dl class="docutils">
+<dt>The response parameters that are of interest are</dt>
+<dd><ul class="first last simple">
+<li><strong>NameSpaceType</strong> can be <em>Federated</em> or <em>Managed</em>. If the NameSpaceType is <em>Federated</em>, the domain has been set for federated SSO and thus is vulnerable</li>
+<li><strong>federation_protocol</strong> can be <em>WSTrust</em> or <em>SAML20</em> depending on how the SSO is configured. As shown above, both are vulnerable.</li>
+</ul>
+</dd>
+<dt>Checking manually for a couple of the aforementioned companies reveals that</dt>
+<dd><ul class="first last simple">
+<li><a class="reference external" href="http://www.telefonika.com">telefonika</a></li>
+<li><a class="reference external" href="http://www.caltex.com.au">Caltex Australia</a></li>
+<li><a class="reference external" href="http://www.gsu.edu">Georgia State University</a></li>
+<li><a class="reference external" href="http://www.jal.com">Japan Airlines</a></li>
+<li><a class="reference external" href="http://www.sccgov.org">Santa Clara County</a></li>
+<li><a class="reference external" href="http://www.cityofchicago.org">City of Chicago,IL</a></li>
+<li><a class="reference external" href="http://www.ba.com">British Airways</a></li>
+</ul>
+</dd>
+<dt>among others have their domains set as federated and thus were vulnerable. Additionally, some random checks against high profile targets showed that big organizations across various sectors use federated SSO with their Office365 subscriptions. Some prominent examples are in the list below</dt>
+<dd><ul class="first last simple">
+<li><a class="reference external" href="http://www.microsoft.com">Microsoft</a> (well, duh)</li>
+<li><a class="reference external" href="http://www.vodafone.com">Vodafone</a></li>
+<li><a class="reference external" href="http://www.bt.com">British Telecommunications plc</a></li>
+<li><a class="reference external" href="http://www.verizon.com">Verizon</a></li>
+<li><a class="reference external" href="http://www.imf.org">International Monetary Fund</a></li>
+<li><a class="reference external" href="http://www.shell.com">Royal Dutch Shell</a></li>
+<li><a class="reference external" href="http://www.dailymail.co.uk">The Daily Mail</a></li>
+<li><a class="reference external" href="http://www.novartis.com">Novartis Pharma AG</a></li>
+<li><a class="reference external" href="http://www.pfizer.com">Pfizer</a></li>
+<li><a class="reference external" href="http://www.toyota.com">Toyota Motor North America</a></li>
+<li><a class="reference external" href="http://www.cisco.com">Cisco</a></li>
+<li><a class="reference external" href="http://www.ibm.com">IBM</a></li>
+<li><a class="reference external" href="http://www.intel.com">Intel</a></li>
+<li><a class="reference external" href="http://www.pwc.com">Pricewaterhouse Coopers (PwC)</a></li>
+<li><a class="reference external" href="http://www.kpmg.com">KPMG</a></li>
+<li><a class="reference external" href="http://www.scania.com">Scania AB</a></li>
+<li><a class="reference external" href="https://www.vinci.com">Vinci</a></li>
+</ul>
+</dd>
+</dl>
+<p>It was pretty easy to automate this and check against company domain name lists to identify potential targets, but we did not have the time nor the inclination to do so.</p>
+</div>
+</div>
+<div class="section" id="outro">
+<h2>Outro</h2>
+<dl class="docutils">
+<dt>The aforementioned issue fell within the scope of the Online Service bug bounty program and as such has been rewarded and acknowledged by Microsoft on</dt>
+<dd><ul class="first last simple">
+<li><a class="reference external" href="https://technet.microsoft.com/en-us/security/dn469163">https://technet.microsoft.com/en-us/security/dn469163</a></li>
+<li><a class="reference external" href="https://technet.microsoft.com/en-us/security/cc308589.aspx">https://technet.microsoft.com/en-us/security/cc308589.aspx</a></li>
+</ul>
+</dd>
+</dl>
+<div class="section" id="timeline">
+<h3>Timeline</h3>
+<blockquote>
+<ul class="simple">
+<li><em>2015-12   :</em> Discovery and initial testing</li>
+<li><em>2016-01-05:</em> Disclosure to Microsoft</li>
+<li><em>2016-01-05:</em> Microsoft acknowledges the issue, mitigates it and rolls out an update in 7 hours (!!).</li>
+<li><em>2016-02-24:</em> Microsoft closes the issue and allows us to publish the details.</li>
+<li><em>2016-04-27:</em> Public disclosure</li>
+</ul>
+</blockquote>
+</div>
+</div>
+
+  </div>
+  <div class="tag-cloud">
+    <p>
+      <a href="http://www.economyofmechanism.com/tag/saml.html">SAML</a>
+      <a href="http://www.economyofmechanism.com/tag/office-365.html">office 365</a>
+      <a href="http://www.economyofmechanism.com/tag/impersonation.html">impersonation</a>
+      <a href="http://www.economyofmechanism.com/tag/single-sign-on.html">Single-Sign-On</a>
+    </p>
+  </div>
+<div id="disqus_thread"></div>
+<script type="text/javascript">
+    var disqus_shortname = 'jkakavas.disqus.com';
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript>
+</article>
+
+    <footer>
+<p>
+  &copy; Ioannis Kakavas 2016 - This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/">Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License</a>
+</p>
+<p>Built using <a href="http://getpelican.com" target="_blank">Pelican</a> - <a href="https://github.com/alexandrevicenzi/flex" target="_blank">Flex</a> theme by <a href="http://alexandrevicenzi.com" target="_blank">Alexandre Vicenzi</a></p><p>
+  <a rel="license"
+     href="http://creativecommons.org/licenses/by-nc-sa/4.0/"
+     target="_blank">
+    <img alt="Creative Commons License"
+         title="Creative Commons License"
+         style="border-width:0"
+         src="https://i.creativecommons.org/l/by-nc-sa/4.0/80x15.png"
+         width="80"
+         height="15"/>
+  </a>
+</p>    </footer>
+  </main>
+
+<!-- Google Analytics -->
+<script type="text/javascript">
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-76540948-1', 'auto');
+  ga('send', 'pageview');
+</script>
+<!-- End Google Analytics -->
+
+
+
+<script type="application/ld+json">
+{
+  "@context": "http://schema.org",
+  "@type": "BlogPosting",
+  "name": "The road to hell is paved with SAML Assertions",
+  "headline": "The road to hell is paved with SAML Assertions",
+  "datePublished": "2016-04-27 00:00:00+03:00",
+  "dateModified": "2016-04-27 12:40:00+03:00",
+  "author": {
+    "@type": "Person",
+    "name": "Ioannis Kakavas",
+    "url": "http://www.economyofmechanism.com/author/ioannis-kakavas.html"
+  },
+  "image": "{{ SITEURL }}/{{ THEME_STATIC_DIR }}/img/profile.png",
+  "url": "http://www.economyofmechanism.com/office365-authbypass.html",
+  "description": "Cross Domain Authentication Bypass in Office 365"
+}
+</script></body>
+</html>
