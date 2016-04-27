@@ -408,7 +408,7 @@ Referer: https://login.microsoftonline.com/login.srf?wa=wsignin1.0&amp;rpsnv=4&a
 <h3>Scoping</h3>
 <p>That leaves the value of the IDPEmail attribute that corresponds to the UPN of the user in the Azure AD, as the sufficient piece of information to identify the user in the Assertion. Well, ok, this is not necessarily
 bad in itself as the Assertion also contains the Issuer that generated and signed it, so an unrelated Identity Provider cannot create assertions for other domain's/tenant's users, right? Wrong.</p>
-<p>As it turns out, the Service Provider used the Issuer of the Assertion only to find the mathing certificate in order to verify the SAML Response/Assertion signature, but didn't perform any sanity checks on the supplied
+<p>As it turns out, the Service Provider used the Issuer of the Assertion only to find the matching certificate in order to verify the SAML Response/Assertion signature, but didn't perform any sanity checks on the supplied
 value of the IDPEmail attribute. That basically means that it would happily consume assertions, asserting that Identity Provider X has authenticated users of Identity Provider Y.</p>
 <p>In SAML world this can be  mitigated with the help of scoped attributes. These are attributes that have 2 parts, a value and a scope in the format <a class="reference external" href="mailto:value&#64;scope">value&#64;scope</a>. The Identity Provider publishes the scope that it
 is authoritative for in it's Metadata and Service Providers are supposed to check that when they consume a scoped attribute from an Identity Provider, they check that the scope that came matches the published one. UPN a.k.a. IDPEmail is scoped by definition as the domain part needs to be one of the (sub-)domains that the administrator has verified in an Office365 tenant.</p>
@@ -417,7 +417,7 @@ is authoritative for in it's Metadata and Service Providers are supposed to chec
 <h3>How could this be exploited?</h3>
 <p>At the time of discovery we already had one Office 365 tenant setup as a playground for connecting Office 365 and SAML 2 identity providers. We had a basic Active Directory instance and <a class="reference external" href="https://simplesamlphp.org/SimpleSAMLphp">SimpleSAMLphp</a> as our Identity Provider.</p>
 <p>The first thing was setting up another organization playing a part of the victim in our experiments. This included a new Office 365 trial subscription and another SimpleSAMLphp instance with a different EntityID.</p>
-<p>Our testing enviroment therefore looked something like this:</p>
+<p>Our testing environment therefore looked something like this:</p>
 <ol class="arabic simple">
 <li>First Office 365 subscription with <strong>someorg-attacker.com</strong> being authenticated at <a class="reference external" href="http://idp.someorg-attacker.com/">http://idp.someorg-attacker.com/</a></li>
 <li>Second Office 365 subscription with <strong>someorg-victim.com</strong> being authenticated at <a class="reference external" href="http://idp.someorg-victim.com/">http://idp.someorg-victim.com/</a></li>
