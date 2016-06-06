@@ -236,7 +236,7 @@ been modified in transit.</p>
 <p>The Office 365 service provider implementation is a weird mixture of WS-Trust specification and SAML 2.0 Web Browser SSO Profile. That is, Office 365 supports SSO both with WS-Trust and with SAML 2.0 Web Browser SSO but the two implementations are not isolated. This is why, for example, in the <a class="reference external" href="https://msdn.microsoft.com/en-us/library/azure/jj205456.aspx">official documentation for SAML 2.0 SSO</a> shibboleth identity provider is referred to as a <em>Security Token Service</em>, terminology that is relevant to WS-Trust specification but not SAML.
 The SAML service provider is, however, SAML 2.0 compliant-ish (sic) from the perspective of a SAML identity provider and uses a token translation service to convert SAML messages to WS-Trust messages internally. This encapsulation becomes specifically relevant later on, when discussing the attack surface in <a class="reference internal" href="#how-could-this-be-exploited">How could this be exploited?</a> as the vulnerability found in the SAML Service Provider implementation also affects the WS-Trust SSO implementation because of this token translation service.</p>
 <p>However, for the sake of simplicity, for the rest of this section the Office 365 service provider is considered to be a SAML service provider.</p>
-<p>One additional thing to keep in mind is that Office 365 does not support Just-In-Time provisioning for accounts authenticating via SAML, so for Signle Sign On to work the account must already be registered in Azure AD for the
+<p>One additional thing to keep in mind is that Office 365 does not support Just-In-Time provisioning for accounts authenticating via SAML, so for Single Sign On to work the account must already be registered in Azure AD for the
 specific tenant. This can happen via Directory Synchronization or via user provisioning with the help of an IDM system, but this is out of the scope of this post.</p>
 <dl class="docutils">
 <dt>The attributes that are required to be released from an Identity Provider to the Office 365 Service Provider for the user are two:</dt>
@@ -408,7 +408,7 @@ Referer: https://login.microsoftonline.com/login.srf?wa=wsignin1.0&amp;rpsnv=4&a
 <h3>Scoping</h3>
 <p>That leaves the value of the IDPEmail attribute that corresponds to the UPN of the user in the Azure AD, as the sufficient piece of information to identify the user in the Assertion. Well, ok, this is not necessarily
 bad in itself as the Assertion also contains the Issuer that generated and signed it, so an unrelated Identity Provider cannot create assertions for other domain's/tenant's users, right? Wrong.</p>
-<p>As it turns out, the Service Provider used the Issuer of the Assertion only to find the mathing certificate in order to verify the SAML Response/Assertion signature, but didn't perform any sanity checks on the supplied
+<p>As it turns out, the Service Provider used the Issuer of the Assertion only to find the matching certificate in order to verify the SAML Response/Assertion signature, but didn't perform any sanity checks on the supplied
 value of the IDPEmail attribute. That basically means that it would happily consume assertions, asserting that Identity Provider X has authenticated users of Identity Provider Y.</p>
 <p>In SAML world this can be  mitigated with the help of scoped attributes. These are attributes that have 2 parts, a value and a scope in the format <a class="reference external" href="mailto:value&#64;scope">value&#64;scope</a>. The Identity Provider publishes the scope that it
 is authoritative for in it's Metadata and Service Providers are supposed to check that when they consume a scoped attribute from an Identity Provider, they check that the scope that came matches the published one. UPN a.k.a. IDPEmail is scoped by definition as the domain part needs to be one of the (sub-)domains that the administrator has verified in an Office365 tenant.</p>
@@ -417,7 +417,7 @@ is authoritative for in it's Metadata and Service Providers are supposed to chec
 <h3>How could this be exploited?</h3>
 <p>At the time of discovery we already had one Office 365 tenant setup as a playground for connecting Office 365 and SAML 2 identity providers. We had a basic Active Directory instance and <a class="reference external" href="https://simplesamlphp.org/SimpleSAMLphp">SimpleSAMLphp</a> as our Identity Provider.</p>
 <p>The first thing was setting up another organization playing a part of the victim in our experiments. This included a new Office 365 trial subscription and another SimpleSAMLphp instance with a different EntityID.</p>
-<p>Our testing enviroment therefore looked something like this:</p>
+<p>Our testing environment therefore looked something like this:</p>
 <ol class="arabic simple">
 <li>First Office 365 subscription with <strong>someorg-attacker.com</strong> being authenticated at <a class="reference external" href="http://idp.someorg-attacker.com/">http://idp.someorg-attacker.com/</a></li>
 <li>Second Office 365 subscription with <strong>someorg-victim.com</strong> being authenticated at <a class="reference external" href="http://idp.someorg-victim.com/">http://idp.someorg-victim.com/</a></li>
