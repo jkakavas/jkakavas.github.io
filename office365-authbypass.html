@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,8 +6,8 @@
 
     <link rel="stylesheet" type="text/css" href="http://www.economyofmechanism.com/theme/stylesheet/style.min.css">
 
-  <link rel="stylesheet" type="text/css" href="http://www.economyofmechanism.com/theme/stylesheet/pygments.min.css">
-  <link rel="stylesheet" type="text/css" href="http://www.economyofmechanism.com/theme/stylesheet/font-awesome.min.css">
+  <link rel="stylesheet" type="text/css" href="http://www.economyofmechanism.com/theme/pygments/github.min.css">
+  <link rel="stylesheet" type="text/css" href="http://www.economyofmechanism.com/theme/font-awesome/css/font-awesome.min.css">
 
 
     <link href="http://www.economyofmechanism.com/feeds/all.atom.xml" type="application/atom+xml" rel="alternate" title="Economy of mechanism Atom">
@@ -14,8 +15,11 @@
 
 
   <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="HandheldFriendly" content="True" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="index, follow" />
+
 
 <meta name="author" content="Ioannis Kakavas" />
 <meta name="description" content="Cross Domain Authentication Bypass in Office 365" />
@@ -35,7 +39,9 @@
 <meta property="article:tag" content="impersonation"/>
 <meta property="article:tag" content="Single-Sign-On"/>
 <meta property="og:image" content="">
+
   <title>Economy of mechanism &ndash; The road to hell is paved with SAML Assertions</title>
+
 </head>
 <body>
   <aside>
@@ -44,13 +50,16 @@
         <img src="http://www.economyofmechanism.com/theme/img/profile.png" alt="" title="">
       </a>
       <h1><a href="http://www.economyofmechanism.com"></a></h1>
-      <p>Security is hard</p>
+
+<p>Security is hard</p>
       <nav>
         <ul class="list">
           <li><a href="http://www.economyofmechanism.com/pages/about.html#about">About</a></li>
+
           <li><a href="http://www.geocreepy.com" target="_blank">geocreepy</a></li>
         </ul>
       </nav>
+
       <ul class="social">
         <li><a class="sc-twitter" href="https://twitter.com/ilektrojohn" target="_blank"><i class="fa fa-twitter"></i></a></li>
         <li><a class="sc-github" href="https://github.com/jkakavas" target="_blank"><i class="fa fa-github"></i></a></li>
@@ -58,21 +67,35 @@
         <li><a class="sc-rss" href="//economyofmechanism.com/feeds/all.atom.xml" target="_blank"><i class="fa fa-rss"></i></a></li>
       </ul>
     </div>
+
+
   </aside>
   <main>
+
     <nav>
-      <a href="http://www.economyofmechanism.com">Home</a>
+      <a href="http://www.economyofmechanism.com">    Home
+</a>
+
       <a href="/archives.html">Archives</a>
       <a href="/categories.html">Categories</a>
       <a href="/tags.html">Tags</a>
-      <a href="http://www.economyofmechanism.com/feeds/all.atom.xml">Atom</a>
+
+      <a href="http://www.economyofmechanism.com/feeds/all.atom.xml">    Atom
+</a>
+
     </nav>
 
-<article>
+<article class="single">
   <header>
     <h1 id="office365-authbypass">The road to hell is paved with SAML Assertions</h1>
-    <p>Posted on Τετ 27 Απρίλιος 2016 in <a href="http://www.economyofmechanism.com/category/bounty.html">bounty</a></p>
+    <p>
+          Posted on Τετ 27 Απρίλιος 2016 in <a href="http://www.economyofmechanism.com/category/bounty.html">bounty</a>
+
+
+    </p>
   </header>
+
+
   <div>
     <div class="section" id="tl-dr">
 <h2>TL;DR</h2>
@@ -236,7 +259,7 @@ been modified in transit.</p>
 <p>The Office 365 service provider implementation is a weird mixture of WS-Trust specification and SAML 2.0 Web Browser SSO Profile. That is, Office 365 supports SSO both with WS-Trust and with SAML 2.0 Web Browser SSO but the two implementations are not isolated. This is why, for example, in the <a class="reference external" href="https://msdn.microsoft.com/en-us/library/azure/jj205456.aspx">official documentation for SAML 2.0 SSO</a> shibboleth identity provider is referred to as a <em>Security Token Service</em>, terminology that is relevant to WS-Trust specification but not SAML.
 The SAML service provider is, however, SAML 2.0 compliant-ish (sic) from the perspective of a SAML identity provider and uses a token translation service to convert SAML messages to WS-Trust messages internally. This encapsulation becomes specifically relevant later on, when discussing the attack surface in <a class="reference internal" href="#how-could-this-be-exploited">How could this be exploited?</a> as the vulnerability found in the SAML Service Provider implementation also affects the WS-Trust SSO implementation because of this token translation service.</p>
 <p>However, for the sake of simplicity, for the rest of this section the Office 365 service provider is considered to be a SAML service provider.</p>
-<p>One additional thing to keep in mind is that Office 365 does not support Just-In-Time provisioning for accounts authenticating via SAML, so for Single Sign On to work the account must already be registered in Azure AD for the
+<p>One additional thing to keep in mind is that Office 365 does not support Just-In-Time provisioning for accounts authenticating via SAML, so for Signle Sign On to work the account must already be registered in Azure AD for the
 specific tenant. This can happen via Directory Synchronization or via user provisioning with the help of an IDM system, but this is out of the scope of this post.</p>
 <dl class="docutils">
 <dt>The attributes that are required to be released from an Identity Provider to the Office 365 Service Provider for the user are two:</dt>
@@ -408,7 +431,7 @@ Referer: https://login.microsoftonline.com/login.srf?wa=wsignin1.0&amp;rpsnv=4&a
 <h3>Scoping</h3>
 <p>That leaves the value of the IDPEmail attribute that corresponds to the UPN of the user in the Azure AD, as the sufficient piece of information to identify the user in the Assertion. Well, ok, this is not necessarily
 bad in itself as the Assertion also contains the Issuer that generated and signed it, so an unrelated Identity Provider cannot create assertions for other domain's/tenant's users, right? Wrong.</p>
-<p>As it turns out, the Service Provider used the Issuer of the Assertion only to find the matching certificate in order to verify the SAML Response/Assertion signature, but didn't perform any sanity checks on the supplied
+<p>As it turns out, the Service Provider used the Issuer of the Assertion only to find the mathing certificate in order to verify the SAML Response/Assertion signature, but didn't perform any sanity checks on the supplied
 value of the IDPEmail attribute. That basically means that it would happily consume assertions, asserting that Identity Provider X has authenticated users of Identity Provider Y.</p>
 <p>In SAML world this can be  mitigated with the help of scoped attributes. These are attributes that have 2 parts, a value and a scope in the format <a class="reference external" href="mailto:value&#64;scope">value&#64;scope</a>. The Identity Provider publishes the scope that it
 is authoritative for in it's Metadata and Service Providers are supposed to check that when they consume a scoped attribute from an Identity Provider, they check that the scope that came matches the published one. UPN a.k.a. IDPEmail is scoped by definition as the domain part needs to be one of the (sub-)domains that the administrator has verified in an Office365 tenant.</p>
@@ -417,7 +440,7 @@ is authoritative for in it's Metadata and Service Providers are supposed to chec
 <h3>How could this be exploited?</h3>
 <p>At the time of discovery we already had one Office 365 tenant setup as a playground for connecting Office 365 and SAML 2 identity providers. We had a basic Active Directory instance and <a class="reference external" href="https://simplesamlphp.org/SimpleSAMLphp">SimpleSAMLphp</a> as our Identity Provider.</p>
 <p>The first thing was setting up another organization playing a part of the victim in our experiments. This included a new Office 365 trial subscription and another SimpleSAMLphp instance with a different EntityID.</p>
-<p>Our testing environment therefore looked something like this:</p>
+<p>Our testing enviroment therefore looked something like this:</p>
 <ol class="arabic simple">
 <li>First Office 365 subscription with <strong>someorg-attacker.com</strong> being authenticated at <a class="reference external" href="http://idp.someorg-attacker.com/">http://idp.someorg-attacker.com/</a></li>
 <li>Second Office 365 subscription with <strong>someorg-victim.com</strong> being authenticated at <a class="reference external" href="http://idp.someorg-victim.com/">http://idp.someorg-victim.com/</a></li>
@@ -542,23 +565,31 @@ curl -s https://products.office.com/en-us/XMLData/PMG-CustomerStoryContent.xml?_
       <a href="http://www.economyofmechanism.com/tag/single-sign-on.html">Single-Sign-On</a>
     </p>
   </div>
+
+
+
+
 <div id="disqus_thread"></div>
 <script type="text/javascript">
-    var disqus_shortname = 'jkakavas';
+    var disqus_shortname = 'jkakavas.disqus.com';
     (function() {
         var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
         dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
         (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
     })();
 </script>
-<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript>
+<noscript>
+        Please enable JavaScript to view comments.
+
+</noscript>
 </article>
 
     <footer>
 <p>
   &copy; Ioannis Kakavas 2016 - This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/">Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License</a>
 </p>
-<p>Built using <a href="http://getpelican.com" target="_blank">Pelican</a> - <a href="https://github.com/alexandrevicenzi/flex" target="_blank">Flex</a> theme by <a href="http://alexandrevicenzi.com" target="_blank">Alexandre Vicenzi</a></p><p>
+<p>    Powered by <a href="http://getpelican.com" target="_blank">Pelican</a> - <a href="https://github.com/alexandrevicenzi/flex" target="_blank">Flex</a> theme by <a href="http://alexandrevicenzi.com" target="_blank">Alexandre Vicenzi</a>
+</p><p>
   <a rel="license"
      href="http://creativecommons.org/licenses/by-nc-sa/4.0/"
      target="_blank">
@@ -588,20 +619,13 @@ curl -s https://products.office.com/en-us/XMLData/PMG-CustomerStoryContent.xml?_
 
 <script type="application/ld+json">
 {
-  "@context": "http://schema.org",
-  "@type": "BlogPosting",
-  "name": "The road to hell is paved with SAML Assertions",
-  "headline": "The road to hell is paved with SAML Assertions",
-  "datePublished": "2016-04-27 00:00:00+03:00",
-  "dateModified": "2016-04-27 12:40:00+03:00",
-  "author": {
-    "@type": "Person",
-    "name": "Ioannis Kakavas",
-    "url": "http://www.economyofmechanism.com/author/ioannis-kakavas.html"
-  },
-  "image": "{{ SITEURL }}/{{ THEME_STATIC_DIR }}/img/profile.png",
-  "url": "http://www.economyofmechanism.com/office365-authbypass.html",
-  "description": "Cross Domain Authentication Bypass in Office 365"
+  "@context" : "http://schema.org",
+  "@type" : "Blog",
+  "name": " Economy of mechanism ",
+  "url" : "http://www.economyofmechanism.com",
+  "image": "",
+  "description": ""
 }
-</script></body>
+</script>
+</body>
 </html>

