@@ -99,46 +99,48 @@
     <div class="contents topic" id="navigation">
 <p class="topic-title first">Navigation</p>
 <ul class="simple">
-<li><a class="reference internal" href="#tl-dr" id="id3">TL;DR</a></li>
-<li><a class="reference internal" href="#introduction" id="id4">Introduction</a><ul>
-<li><a class="reference internal" href="#setting-up-the-test-environment" id="id5">Setting up the test environment</a></li>
-<li><a class="reference internal" href="#getting-the-source-code-of-the-saml-implementation" id="id6">Getting the source code of the SAML implementation</a></li>
-<li><a class="reference internal" href="#verifying-that-everything-works" id="id7">Verifying that everything works</a></li>
+<li><a class="reference internal" href="#tl-dr" id="id5">TL;DR</a></li>
+<li><a class="reference internal" href="#introduction" id="id6">Introduction</a><ul>
+<li><a class="reference internal" href="#setting-up-the-test-environment" id="id7">Setting up the test environment</a></li>
+<li><a class="reference internal" href="#getting-the-source-code-of-the-saml-implementation" id="id8">Getting the source code of the SAML implementation</a></li>
+<li><a class="reference internal" href="#verifying-that-everything-works" id="id9">Verifying that everything works</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#attacking-the-saml-sp-implementation" id="id8">Attacking the SAML SP Implementation</a><ul>
-<li><a class="reference internal" href="#signature-stripping" id="id9">Signature Stripping</a><ul>
-<li><a class="reference internal" href="#overview" id="id10">Overview</a></li>
-<li><a class="reference internal" href="#details" id="id11">Details</a></li>
-<li><a class="reference internal" href="#poc" id="id12">PoC</a></li>
-<li><a class="reference internal" href="#disclosure" id="id13">Disclosure</a></li>
+<li><a class="reference internal" href="#attacking-the-saml-sp-implementation" id="id10">Attacking the SAML SP Implementation</a><ul>
+<li><a class="reference internal" href="#signature-stripping" id="id11">Signature Stripping</a><ul>
+<li><a class="reference internal" href="#overview" id="id12">Overview</a></li>
+<li><a class="reference internal" href="#details" id="id13">Details</a></li>
+<li><a class="reference internal" href="#poc" id="id14">PoC</a></li>
+<li><a class="reference internal" href="#disclosure" id="id15">Disclosure</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#xml-signature-wrapping-attacks" id="id14">XML Signature Wrapping Attacks</a><ul>
-<li><a class="reference internal" href="#poc-steps-to-reproduce" id="id15">PoC - Steps to reproduce</a></li>
-<li><a class="reference internal" href="#exploitability" id="id16">Exploitability</a></li>
-<li><a class="reference internal" href="#impact" id="id17">Impact</a></li>
-<li><a class="reference internal" href="#id1" id="id18">Disclosure</a></li>
+<li><a class="reference internal" href="#xml-signature-wrapping-attacks" id="id16">XML Signature Wrapping Attacks</a><ul>
+<li><a class="reference internal" href="#overiew" id="id17">Overiew</a></li>
+<li><a class="reference internal" href="#id1" id="id18">Details</a></li>
+<li><a class="reference internal" href="#id2" id="id19">PoC</a></li>
+<li><a class="reference internal" href="#exploitability" id="id20">Exploitability</a></li>
+<li><a class="reference internal" href="#impact" id="id21">Impact</a></li>
+<li><a class="reference internal" href="#id3" id="id22">Disclosure</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li><a class="reference internal" href="#timeline" id="id19">Timeline</a></li>
-<li><a class="reference internal" href="#full-saml-implementation-assessment" id="id20">Full SAML Implementation Assessment</a></li>
-<li><a class="reference internal" href="#outro" id="id21">Outro</a></li>
+<li><a class="reference internal" href="#timeline" id="id23">Timeline</a></li>
+<li><a class="reference internal" href="#full-saml-implementation-assessment" id="id24">Full SAML Implementation Assessment</a></li>
+<li><a class="reference internal" href="#outro" id="id25">Outro</a></li>
 </ul>
 </div>
 <div class="section" id="tl-dr">
-<h2><a class="toc-backref" href="#id3">TL;DR</a></h2>
+<h2><a class="toc-backref" href="#id5">TL;DR</a></h2>
 <p>Two vulnerabilities were identified in the SAML Service Provider implementation of Github Enterprise edition that allowed for full authentication bypass. These vulnerabilities were reported to Github via their <a class="reference external" href="https://www.hackerone.com/github">bug bounty program in Hackerone</a> and mitigated.</p>
 </div>
 <div class="section" id="introduction">
-<h2><a class="toc-backref" href="#id4">Introduction</a></h2>
+<h2><a class="toc-backref" href="#id6">Introduction</a></h2>
 <p>Github Enterprise allows to be configured for authentication <a class="reference external" href="https://help.github.com/enterprise/2.9/admin/guides/user-management/using-saml">using SAML</a> , acting as a SAML Service Provider for the Organization's on premises SAML Identity Provider. For a short introduction on SAML authentication feel free to take a look in my <a class="reference external" href="http://www.economyofmechanism.com/office365-authbypass.html#short-saml-introduction">previous post</a> and/or any of the following: <a class="reference external" href="https://en.wikipedia.org/wiki/SAML_2.0#Web_Browser_SSO_Profile">wikipedia</a>, <a class="reference external" href="https://developers.onelogin.com/saml">onelogin saml tutorial</a>, <a class="reference external" href="https://auth0.com/blog/how-saml-authentication-works/">auth0 saml how-to</a>.</p>
 <p>Ever since I heard that Github supported SAML authentication for it's Enterprise edition, I made a mental note to come back an take a look. I was curious about what I might find but because of Github being Github, I didn't expect to uncover anything significant and I gradually forgot about it. Fast forward to this January when <a class="reference external" href="https://twitter.com/orange_8361">Orange Tsai</a> posted their cool <a class="reference external" href="http://blog.orange.tw/2017/01/bug-bounty-github-enterprise-sql-injection.html">writeup</a> of the SQL injection vulnerability they discovered in GHE and <a class="reference external" href="https://twitter.com/github/status/818548407987945473">this tweet</a> from <a class="reference external" href="https://twitter.com/GithubSecurity">Github Security</a> announcing that they will be giving out some bonuses on the vulnerabilities reported in January and February. Orange's writeup triggered my interest and the bounty bonus functioned as a nice incentive.</p>
 <p>This post describes what happened next. The focus will be on how I came about finding the vulnerabilities hoping that you can take something more out of reading this post, rather than just me &quot;bragging&quot; about what I found.</p>
 <div class="section" id="setting-up-the-test-environment">
-<h3><a class="toc-backref" href="#id5">Setting up the test environment</a></h3>
+<h3><a class="toc-backref" href="#id7">Setting up the test environment</a></h3>
 <p>Failing to read the <a class="reference external" href="https://bounty.github.com/#open-bounties">documentation</a> properly, I didn't know that I could ask for a testing license from Github, so I went and registered for a normal business trial (Apologies to the friendly sales guy who tried to set up a call with me following that - I never had a legitimate interest in buying).</p>
 <p>I downloaded the qcow2 image, fired up a VM with 2 cpu and 4 GB ram, and.. nothing.</p>
 <div class="figure">
@@ -164,7 +166,7 @@ CHECK_REQUIREMENTS = {¬
 <p>did the trick and I was able to start the VM.</p>
 </div>
 <div class="section" id="getting-the-source-code-of-the-saml-implementation">
-<h3><a class="toc-backref" href="#id6">Getting the source code of the SAML implementation</a></h3>
+<h3><a class="toc-backref" href="#id8">Getting the source code of the SAML implementation</a></h3>
 <p>Building on what Orange had described in the write-up, I proceeded to <cite>scp</cite> the source code from <cite>/data/github/current</cite> to the host machine and used the following script</p>
 <pre class="code ruby literal-block">
 <span class="nb">require</span> <span class="s1">'zlib'</span>
@@ -203,10 +205,10 @@ find . -iname '*.rb' -exec ruby decrypt.rb '{}' \;
 </pre>
 </div>
 <div class="section" id="verifying-that-everything-works">
-<h3><a class="toc-backref" href="#id7">Verifying that everything works</a></h3>
+<h3><a class="toc-backref" href="#id9">Verifying that everything works</a></h3>
 <p>Setting up the SAML authentication was quite easy following the steps in <a class="reference external" href="https://help.github.com/enterprise/2.9/admin/guides/user-management/using-saml">the docs</a>. For the Identity Provider part, I am using a python project based on <a class="reference external" href="https://pypi.python.org/pypi/pysaml2">pysaml2</a> that can handle legitimate IdP functionality as well as a number of automated and semi-automated SAML related attacks. Hopefully it will be released soon and will be the topic of another blog post. I created a dummy IdP certificate</p>
 <pre class="code bash literal-block">
-openssl req -nodes -x509 -newkey rsa:2048 -keyout idp.key -out idp.crt -days <span class="m">3650</span>
+openssl req -nodes -x509 -newkey rsa:2048 -keyout idp.key -out idp.crt -days 3650
 </pre>
 <p>and I set my Issuer to be <a class="reference external" href="https://idp.ikakavas.gr">https://idp.ikakavas.gr</a> and the authentication endpoint to <a class="reference external" href="https://idp.ikakavas.gr/sso/redirect">https://idp.ikakavas.gr/sso/redirect</a>. Note that the domain doesn't have to resolve to something, since all communication is front-channel via the user's browser, a simple entry in <cite>/etc/hosts</cite> pointing to localhost is sufficient for testing.
 I set up my Identity Provider to release a NameID with format <cite>urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified</cite> and I was ready to start testing.</p>
@@ -226,11 +228,11 @@ I set up my Identity Provider to release a NameID with format <cite>urn:oasis:na
 </div>
 </div>
 <div class="section" id="attacking-the-saml-sp-implementation">
-<h2><a class="toc-backref" href="#id8">Attacking the SAML SP Implementation</a></h2>
+<h2><a class="toc-backref" href="#id10">Attacking the SAML SP Implementation</a></h2>
 <div class="section" id="signature-stripping">
-<h3><a class="toc-backref" href="#id9">Signature Stripping</a></h3>
+<h3><a class="toc-backref" href="#id11">Signature Stripping</a></h3>
 <div class="section" id="overview">
-<h4><a class="toc-backref" href="#id10">Overview</a></h4>
+<h4><a class="toc-backref" href="#id12">Overview</a></h4>
 <p>The first thing I tried was to disable signing the SAML Response and the SAML Assertion that my Identity Provider was sending to the GHE Service Provider. I did that more for due diligence so that I can move on to more promising test cases and almost couldn't believe it when the authentication succeeded.</p>
 <p>If you were too bored to refresh your SAML knowledge above, the equivalent of a Service Provider accepting unsigned SAML assertions is accepting a username without checking the password. Effectively on the flow described above, on step 5, GHE SAML SP accepted any SAML Assertion assuming it was well formed and valid without checking it's authenticity.</p>
 <p>So, in 30 mins time (counting the time it took to figure out how to run the VM with less than 14GB of RAM) I had a very serious bug in my hands. The impact of it was quite severe:</p>
@@ -242,7 +244,7 @@ I set up my Identity Provider to release a NameID with format <cite>urn:oasis:na
 <p>The thing is that signature verification is a very fundamental part of SAML SSO and I was too surprised and intrigued that this was not checked at all. I had to submit a report in Hackerone, but first I needed to know why.</p>
 </div>
 <div class="section" id="details">
-<h4><a class="toc-backref" href="#id11">Details</a></h4>
+<h4><a class="toc-backref" href="#id13">Details</a></h4>
 <p>A few greps later, I figured out that the SAML implementation is contained within the <cite>/data/github/current/lib/saml</cite> directory. Ruby is not my strong point but the code seemed straightforward enough. A quick grep for <cite>signature</cite> left me more perplexed than before as I could see that there are code paths to handle the verification of the Signatures in the SAML Response</p>
 <p>The verification process for an incoming SAML Response starts at <cite>/data/github/current/lib/github/authentication/saml.rb</cite> which deals with the HTTP POST request to the Assertion Consuming Service Endpoint and specifically in the <code class="rubyinline ruby"><span class="n">get_auth_failure_result</span></code> method</p>
 <pre class="code ruby literal-block">
@@ -318,7 +320,7 @@ I set up my Identity Provider to release a NameID with format <cite>urn:oasis:na
 <p>So I replaced the obfuscated code with the de-obfuscated version of <cite>/data/github/current/lib/saml/message/response.rb</cite> and changed the following</p>
 <pre class="code ruby literal-block">
 <span class="k">def</span> <span class="nf">validate</span><span class="p">(</span><span class="n">options</span><span class="p">)</span>
-    <span class="n">pp</span> <span class="n">options</span><span class="o">[</span><span class="ss">:idp_certificate</span><span class="o">]</span>
+    <span class="n">pp</span> <span class="n">options</span>
     <span class="k">if</span> <span class="o">!</span><span class="no">SAML</span><span class="o">.</span><span class="n">mocked</span><span class="o">[</span><span class="ss">:skip_validate_signature</span><span class="o">]</span> <span class="o">&amp;&amp;</span> <span class="n">options</span><span class="o">[</span><span class="ss">:idp_certificate</span><span class="o">]</span>
       <span class="nb">puts</span> <span class="s1">'Going to validate the signature'</span>
       <span class="n">validate_has_signature</span>
@@ -377,7 +379,7 @@ A few minutes later (unicorn restart took quite some time with 4GB of RAM) I was
 <p>The configuration Hash has a property called <cite>idp_certificate_file</cite> and the code in  <cite>/data/github/current/lib/github/authentication/saml.rb</cite> attempted to get the <cite>idp_certificate_path</cite>. This returned <cite>nil</cite> and effectively disabled all SAML message integrity/authenticity protection.</p>
 </div>
 <div class="section" id="poc">
-<h4><a class="toc-backref" href="#id12">PoC</a></h4>
+<h4><a class="toc-backref" href="#id14">PoC</a></h4>
 <p>I wrote up the above and created the following PoC so that they could validate the issue easily:</p>
 <pre class="code python literal-block">
 <span class="kn">import</span> <span class="nn">requests</span><span class="o">,</span> <span class="nn">urllib</span><span class="o">,</span> <span class="nn">zlib</span><span class="o">,</span> <span class="nn">base64</span><span class="o">,</span> <span class="nn">re</span><span class="o">,</span> <span class="nn">datetime</span><span class="o">,</span> <span class="nn">pprint</span>
@@ -407,7 +409,7 @@ A few minutes later (unicorn restart took quite some time with 4GB of RAM) I was
     <span class="c1"># inflate and decode the request</span>
     <span class="n">saml_request</span> <span class="o">=</span> <span class="n">zlib</span><span class="o">.</span><span class="n">decompress</span><span class="p">(</span><span class="n">urllib</span><span class="o">.</span><span class="n">unquote</span><span class="p">(</span><span class="n">base64</span><span class="o">.</span><span class="n">b64decode</span><span class="p">(</span><span class="n">encoded_saml_request</span><span class="p">)),</span> <span class="o">-</span><span class="mi">15</span><span class="p">)</span>
     <span class="c1"># get the AuthnRequest ID so that we can reply</span>
-    <span class="n">to_reply_to</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s1">'ID=&quot;([_A-Za-z0-9]*)&quot;'</span><span class="p">,</span> <span class="n">saml_request</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">M</span><span class="o">|</span><span class="n">re</span><span class="o">.</span><span class="n">I</span><span class="p">)</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">to_reply_to</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s1">r'ID=&quot;([_A-Za-z0-9]*)&quot;'</span><span class="p">,</span> <span class="n">saml_request</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">M</span><span class="o">|</span><span class="n">re</span><span class="o">.</span><span class="n">I</span><span class="p">)</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 
     <span class="n">now</span> <span class="o">=</span> <span class="s1">'{0}Z'</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">'.'</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
     <span class="n">not_after</span> <span class="o">=</span> <span class="s1">'{0}Z'</span><span class="o">.</span><span class="n">format</span><span class="p">((</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span><span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span> <span class="o">=</span> <span class="mi">20</span><span class="p">))</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">'.'</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
@@ -466,15 +468,17 @@ A few minutes later (unicorn restart took quite some time with 4GB of RAM) I was
 <p>and setting the <cite>user_session</cite> session cookie in a browser would log the attacker in as the impersonated user.</p>
 </div>
 <div class="section" id="disclosure">
-<h4><a class="toc-backref" href="#id13">Disclosure</a></h4>
+<h4><a class="toc-backref" href="#id15">Disclosure</a></h4>
 <p>I submitted the report via Hackerone on January 10th. I receive and acknowledgement some hours later, the issue was triaged the next day and a new GHE <a class="reference external" href="https://enterprise.github.com/releases/2.8.6/notes">release</a> was out on January 12th.</p>
 </div>
 </div>
 <div class="section" id="xml-signature-wrapping-attacks">
-<h3><a class="toc-backref" href="#id14">XML Signature Wrapping Attacks</a></h3>
+<h3><a class="toc-backref" href="#id16">XML Signature Wrapping Attacks</a></h3>
+<div class="section" id="overiew">
+<h4><a class="toc-backref" href="#id17">Overiew</a></h4>
 <p>Next weekend I found myself with some time to spare so I thought I'd give my testing software another spin in order to look for more issues. I have a test suite that would attempt all attacks described in the <a class="reference external" href="https://www.usenix.org/conference/usenixsecurity12/technical-sessions/presentation/somorovsky">2012 paper</a></p>
-<p>Running the tool, it reported quite quickly that the implementation is vulnerable to a specific XML Signature Wrapping (XSW) attack, caused by the fact that the part that validates the signature and the part that implements business logic have different views on the data.</p>
-<p>GHE SAML SP implementation was vulnerable to a crafted SAML Response that contains two SAML Assertions. Assuming the Legitimate Assertion is LA, the Forged Assertion is FA and LAS is the signature of the Legitimate Assertion, the malicious crafted SAML Response would look like this:</p>
+<p>Running the tool, it reported quite quickly that the implementation is vulnerable to a specific XML Signature Wrapping (XSW) attack, caused by the fact that the part that validates the signature and the part that implements business logic have different views on the data.
+GHE SAML SP implementation was vulnerable to a crafted SAML Response that contains two SAML Assertions. Assuming the Legitimate Assertion is LA, the Forged Assertion is FA and LAS is the signature of the Legitimate Assertion, the malicious crafted SAML Response would look like this:</p>
 <pre class="literal-block">
 &lt;SAMLRespone&gt;
   &lt;FA ID=&quot;evil&quot;&gt;
@@ -490,6 +494,9 @@ A few minutes later (unicorn restart took quite some time with 4GB of RAM) I was
 &lt;/SAMLResponse&gt;
 </pre>
 <p>Upon receiving such a SAML response, GHE would successfully verify and consume it creating a session for <strong>Attacker</strong>, instead of <strong>Legitimate User</strong>, even if FA is <strong>not</strong> signed.</p>
+</div>
+<div class="section" id="id1">
+<h4><a class="toc-backref" href="#id18">Details</a></h4>
 <p>Let's see why GHE is vulnerable to this attack by taking a look at the de-obfuscated source code as before:</p>
 <p>The basic problem is that the implementers made an assumption that there will always be only one Assertion in a SAML response.</p>
 <p>The verification process for an incoming SAML Response starts at <cite>/data/github/current/lib/github/authentication/saml.rb</cite> in</p>
@@ -613,8 +620,9 @@ first result, no matter how many results are there, all variables below</p>
 <span class="n">validate_name_id_format</span><span class="p">(</span><span class="n">options</span><span class="o">[</span><span class="ss">:name_id_format</span><span class="o">]</span><span class="p">)</span>
 </pre>
 <p>would return true as they operate on data of the Forged Assertion and the attacker can freely control them to be valid.</p>
-<div class="section" id="poc-steps-to-reproduce">
-<h4><a class="toc-backref" href="#id15">PoC - Steps to reproduce</a></h4>
+</div>
+<div class="section" id="id2">
+<h4><a class="toc-backref" href="#id19">PoC</a></h4>
 <p>The code/toolset that I was using for testing is not yet in a form to be released/shared (hopefully soon) so I used <a class="reference external" href="https://github.com/SAMLRaider/SAMLRaider">SAML Raider</a> in order to describe a PoC with steps to be reproduced by Github Security team.</p>
 <ol class="arabic">
 <li><p class="first">Set up GHE for SAML authentication with a SAML Identity Provider of
@@ -628,7 +636,7 @@ your liking.</p>
 </li>
 <li><p class="first">Intercept the SAML Authn Request and forward</p>
 <div class="figure">
-<img alt="SAML Authentication Request" src="/images/xsw1.png" style="width: 80%;" />
+<img alt="SAML Authentication Request" src="/images/xsw1.png" style="width: 60%;" />
 </div>
 </li>
 <li><p class="first">Login at your Identity Provider as a valid user</p>
@@ -656,7 +664,7 @@ the name in the Subject of the Assertion with ID
 </ol>
 </div>
 <div class="section" id="exploitability">
-<h4><a class="toc-backref" href="#id16">Exploitability</a></h4>
+<h4><a class="toc-backref" href="#id20">Exploitability</a></h4>
 <p>An attacker can bypass authentication given one of the following is true</p>
 <ol class="arabic simple">
 <li>The attacker is an existing user of a GHE instance that uses SAML authentication.</li>
@@ -679,21 +687,21 @@ Questions , etc.</li>
 <p>significantly raises the chances.</p>
 </div>
 <div class="section" id="impact">
-<h4><a class="toc-backref" href="#id17">Impact</a></h4>
+<h4><a class="toc-backref" href="#id21">Impact</a></h4>
 <ul class="simple">
 <li>An external attacker taking advantage of this can authenticate to a GHE instance as any user</li>
 <li>An internal attacker taking advantage of this can authenticate to a GHE instance as any user</li>
 <li>An internal attacker taking advantage of this can elevate their rights to admin in a GHE instance</li>
 </ul>
 </div>
-<div class="section" id="id1">
-<h4><a class="toc-backref" href="#id18">Disclosure</a></h4>
+<div class="section" id="id3">
+<h4><a class="toc-backref" href="#id22">Disclosure</a></h4>
 <p>I reported this to Github security via Hackerone on 16th of January. It was acknowledged and triaged after a couple of hours and resolved on January 31st with GHE version <a class="reference external" href="https://enterprise.github.com/releases/2.8.7/notes">2.8.7</a></p>
 </div>
 </div>
 </div>
 <div class="section" id="timeline">
-<h2><a class="toc-backref" href="#id19">Timeline</a></h2>
+<h2><a class="toc-backref" href="#id23">Timeline</a></h2>
 <ul class="simple">
 <li>2017-01-10: Incorrect XML Signature validation vulnerability discovered and reported</li>
 <li>2017-01-10: Report acknowledged</li>
@@ -706,11 +714,11 @@ Questions , etc.</li>
 </ul>
 </div>
 <div class="section" id="full-saml-implementation-assessment">
-<h2><a class="toc-backref" href="#id20">Full SAML Implementation Assessment</a></h2>
+<h2><a class="toc-backref" href="#id24">Full SAML Implementation Assessment</a></h2>
 <p>Following the above reports I received a research grant in order to continue looking into Github's SAML implementation. I performed a full (to the extend that the agreed timeframe and my off-work availability allowed) security audit which uncovered a couple of minor issues and a set of suggestions/recommendations about the implementation in order to minimize the possibility of similar issues in the future.</p>
 </div>
 <div class="section" id="outro">
-<h2><a class="toc-backref" href="#id21">Outro</a></h2>
+<h2><a class="toc-backref" href="#id25">Outro</a></h2>
 <p>I enjoyed finding and writing these so I hope if you made it through to the end, you did too. Working with the Github Security guys was a bliss and I can verify first hand that their approach towards their bounty program is as serious and as cool as they describe it on their recent <a class="reference external" href="https://githubengineering.com/githubs-bug-bounty-workflow/">blog post</a></p>
 </div>
 
@@ -728,7 +736,7 @@ Questions , etc.</li>
 
 <div id="disqus_thread"></div>
 <script type="text/javascript">
-    var disqus_shortname = 'jkakavas.disqus.com';
+    var disqus_shortname = 'jkakavas';
     (function() {
         var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
         dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';

@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom"><title>Economy of mechanism - research</title><link href="http://www.economyofmechanism.com/" rel="alternate"></link><link href="http://www.economyofmechanism.com/feeds/research.atom.xml" rel="self"></link><id>http://www.economyofmechanism.com/</id><updated>2016-06-06T17:40:00+03:00</updated><entry><title>Your WAF alone, is not enough, not enough, not enough</title><link href="http://www.economyofmechanism.com/careerbuilder-xss.html" rel="alternate"></link><published>2016-05-27T00:00:00+03:00</published><updated>2016-06-06T17:40:00+03:00</updated><author><name>Ioannis Kakavas</name></author><id>tag:www.economyofmechanism.com,2016-05-27:/careerbuilder-xss.html</id><summary type="html">&lt;p class="first last"&gt;Reflected and Stored XSS in multiple careerbuilder sites&lt;/p&gt;
-</summary><content type="html">&lt;div class="section" id="tl-dr"&gt;
+<feed xmlns="http://www.w3.org/2005/Atom"><title>Economy of mechanism</title><link href="http://www.economyofmechanism.com/" rel="alternate"></link><link href="http://www.economyofmechanism.com/feeds/research.atom.xml" rel="self"></link><id>http://www.economyofmechanism.com/</id><updated>2016-06-06T17:40:00+03:00</updated><entry><title>Your WAF alone, is not enough, not enough, not enough</title><link href="http://www.economyofmechanism.com/careerbuilder-xss.html" rel="alternate"></link><updated>2016-06-06T17:40:00+03:00</updated><author><name>Ioannis Kakavas</name></author><id>tag:www.economyofmechanism.com,2016-05-27:careerbuilder-xss.html</id><summary type="html">&lt;div class="section" id="tl-dr"&gt;
 &lt;h2&gt;TL;DR&lt;/h2&gt;
 &lt;p&gt;A number of XSS vulnerabilities were identified in multiple sites owned by CareerBuilder&lt;/p&gt;
 &lt;/div&gt;
@@ -129,4 +128,4 @@ on the same implementation and thus vulnerable to the same attacks. Since, obvio
 &lt;/ul&gt;
 &lt;/blockquote&gt;
 &lt;/div&gt;
-</content><category term="XSS"></category></entry></feed>
+</summary><category term="XSS"></category></entry></feed>
