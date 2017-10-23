@@ -14,16 +14,28 @@
 
 
 
+<!-- Google Analytics -->
+<script type="text/javascript">
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-76540948-1', 'auto');
+  ga('send', 'pageview');
+</script>
+<!-- End Google Analytics -->
   <meta charset="utf-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="HandheldFriendly" content="True" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="robots" content="index, follow" />
+    <meta name="robots" content="index, follow" />
 
 
 <meta name="author" content="Ioannis Kakavas" />
 <meta name="description" content="Authentication bypass using vulnerabilities in the Github Enterprise SAML SP implementation" />
 <meta name="keywords" content="SAML, authentication, XSW">
+
 <meta property="og:site_name" content="Economy of mechanism"/>
 <meta property="og:title" content="The road to your codebase is paved with forged assertions"/>
 <meta property="og:description" content="Authentication bypass using vulnerabilities in the Github Enterprise SAML SP implementation"/>
@@ -86,6 +98,7 @@
 
 <article class="single">
   <header>
+      
     <h1 id="github-saml">The road to your codebase is paved with forged assertions</h1>
     <p>
           Posted on Δευ 13 Μάρτιος 2017 in <a href="http://www.economyofmechanism.com/category/bounty.html">bounty</a>
@@ -208,7 +221,7 @@ find . -iname '*.rb' -exec ruby decrypt.rb '{}' \;
 <h3><a class="toc-backref" href="#id9">Verifying that everything works</a></h3>
 <p>Setting up the SAML authentication was quite easy following the steps in <a class="reference external" href="https://help.github.com/enterprise/2.9/admin/guides/user-management/using-saml">the docs</a>. For the Identity Provider part, I am using a python project based on <a class="reference external" href="https://pypi.python.org/pypi/pysaml2">pysaml2</a> that can handle legitimate IdP functionality as well as a number of automated and semi-automated SAML related attacks. Hopefully it will be released soon and will be the topic of another blog post. I created a dummy IdP certificate</p>
 <pre class="code bash literal-block">
-openssl req -nodes -x509 -newkey rsa:2048 -keyout idp.key -out idp.crt -days 3650
+openssl req -nodes -x509 -newkey rsa:2048 -keyout idp.key -out idp.crt -days <span class="m">3650</span>
 </pre>
 <p>and I set my Issuer to be <a class="reference external" href="https://idp.ikakavas.gr">https://idp.ikakavas.gr</a> and the authentication endpoint to <a class="reference external" href="https://idp.ikakavas.gr/sso/redirect">https://idp.ikakavas.gr/sso/redirect</a>. Note that the domain doesn't have to resolve to something, since all communication is front-channel via the user's browser, a simple entry in <cite>/etc/hosts</cite> pointing to localhost is sufficient for testing.
 I set up my Identity Provider to release a NameID with format <cite>urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified</cite> and I was ready to start testing.</p>
@@ -409,7 +422,7 @@ A few minutes later (unicorn restart took quite some time with 4GB of RAM) I was
     <span class="c1"># inflate and decode the request</span>
     <span class="n">saml_request</span> <span class="o">=</span> <span class="n">zlib</span><span class="o">.</span><span class="n">decompress</span><span class="p">(</span><span class="n">urllib</span><span class="o">.</span><span class="n">unquote</span><span class="p">(</span><span class="n">base64</span><span class="o">.</span><span class="n">b64decode</span><span class="p">(</span><span class="n">encoded_saml_request</span><span class="p">)),</span> <span class="o">-</span><span class="mi">15</span><span class="p">)</span>
     <span class="c1"># get the AuthnRequest ID so that we can reply</span>
-    <span class="n">to_reply_to</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s1">r'ID=&quot;([_A-Za-z0-9]*)&quot;'</span><span class="p">,</span> <span class="n">saml_request</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">M</span><span class="o">|</span><span class="n">re</span><span class="o">.</span><span class="n">I</span><span class="p">)</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">to_reply_to</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s1">'ID=&quot;([_A-Za-z0-9]*)&quot;'</span><span class="p">,</span> <span class="n">saml_request</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">M</span><span class="o">|</span><span class="n">re</span><span class="o">.</span><span class="n">I</span><span class="p">)</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 
     <span class="n">now</span> <span class="o">=</span> <span class="s1">'{0}Z'</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">'.'</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
     <span class="n">not_after</span> <span class="o">=</span> <span class="s1">'{0}Z'</span><span class="o">.</span><span class="n">format</span><span class="p">((</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span><span class="o">+</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span> <span class="o">=</span> <span class="mi">20</span><span class="p">))</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">'.'</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
@@ -733,7 +746,10 @@ Questions , etc.</li>
 
 
 
+    <div class="addthis_relatedposts_inline">
 
+
+<!-- Disqus -->
 <div id="disqus_thread"></div>
 <script type="text/javascript">
     var disqus_shortname = 'jkakavas';
@@ -747,11 +763,12 @@ Questions , etc.</li>
         Please enable JavaScript to view comments.
 
 </noscript>
+<!-- End Disqus -->
 </article>
 
     <footer>
 <p>
-  &copy; Ioannis Kakavas 2016 - This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/">Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License</a>
+  &copy;  2017 - This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/">Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License</a>
 </p>
 <p>    Powered by <a href="http://getpelican.com" target="_blank">Pelican</a> - <a href="https://github.com/alexandrevicenzi/flex" target="_blank">Flex</a> theme by <a href="http://alexandrevicenzi.com" target="_blank">Alexandre Vicenzi</a>
 </p><p>
@@ -768,17 +785,6 @@ Questions , etc.</li>
 </p>    </footer>
   </main>
 
-<!-- Google Analytics -->
-<script type="text/javascript">
-  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
-  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
-  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
-  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
-
-  ga('create', 'UA-76540948-1', 'auto');
-  ga('send', 'pageview');
-</script>
-<!-- End Google Analytics -->
 
 
 
@@ -792,5 +798,6 @@ Questions , etc.</li>
   "description": ""
 }
 </script>
+
 </body>
 </html>
